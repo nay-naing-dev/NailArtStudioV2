@@ -1,0 +1,141 @@
+@import 'tailwindcss';
+
+/* Ayar Juno: add the font file to client/public/fonts/ (AyarJuno.ttf and/or AyarJuno.woff2). Falls back to Noto Sans Myanmar until then. */
+@font-face {
+  font-family: 'Ayar Juno';
+  src:
+    local('Ayar Juno'),
+    url('/fonts/AyarJuno.woff2') format('woff2'),
+    url('/fonts/AyarJuno.ttf') format('truetype');
+  font-weight: 100 900;
+  font-display: swap;
+  unicode-range: U+1000-109F, U+A9E0-A9FF, U+AA60-AA7F;
+}
+
+@theme {
+  --font-sans: 'Inter', 'Ayar Juno', 'Noto Sans Myanmar', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Fraunces', 'Ayar Juno', 'Noto Sans Myanmar', ui-serif, Georgia, serif;
+
+  --color-ink: #2a1a20;
+  --color-ink-soft: #6b5860;
+  --color-blush-50: #fdf6f7;
+  --color-blush-100: #faeaee;
+  --color-blush-200: #f4d3dc;
+  --color-rose-500: #c2416b;
+  --color-rose-600: #a8325a;
+  --color-rose-700: #8a2849;
+  --color-line: #ecdfe3;
+}
+
+/*
+ * Dark theme: near-black surfaces with a matcha-green accent. Every colour in the UI comes from the variables,
+ * so the theme only redefines them. "rose" is the accent name used by the components; here it maps to matcha.
+ * It also remaps --color-white (card and input surfaces) and the pastel status colours.
+ */
+html[data-theme='dark'] {
+  color-scheme: dark;
+  --color-ink: #eef2e8;
+  --color-ink-soft: #a3ad9a;
+  --color-blush-50: #0b0d0a;
+  --color-blush-100: #181d15;
+  --color-blush-200: #26301f;
+  --color-rose-500: #8fb369;
+  --color-rose-600: #a9cb86;
+  --color-rose-700: #c3dca6;
+  --color-line: #293024;
+  --color-white: #131711;
+
+  --color-amber-50: #33270f;
+  --color-amber-200: #5c4514;
+  --color-amber-800: #f3cf7a;
+  --color-red-50: #3a1a1c;
+  --color-red-600: #f28b8b;
+  --color-red-700: #f5a3a3;
+  --color-emerald-50: #12302a;
+  --color-emerald-200: #1f5a4b;
+  --color-emerald-600: #5ed1ac;
+  --color-emerald-800: #8fe3c6;
+  --color-sky-50: #112a38;
+  --color-sky-200: #1d4a63;
+  --color-sky-800: #8cc9ea;
+  --color-stone-100: #232620;
+  --color-stone-200: #353a31;
+  --color-stone-600: #b5bbad;
+}
+
+@layer base {
+  body {
+    @apply bg-blush-50 font-sans text-ink antialiased;
+  }
+  h1,
+  h2,
+  h3 {
+    @apply font-display tracking-tight;
+  }
+  /* Burmese script has tall stacked marks; give it more line height than Latin text. */
+  html[lang='my'] body {
+    line-height: 1.8;
+  }
+  html[lang='my'] h1,
+  html[lang='my'] h2,
+  html[lang='my'] h3 {
+    line-height: 1.5;
+  }
+  /* Dark mode: the embedded map is light-only, so invert it to match. */
+  html[data-theme='dark'] .map-frame {
+    filter: invert(0.92) hue-rotate(180deg) saturate(0.8);
+  }
+  body {
+    transition: background-color 0.25s ease, color 0.25s ease;
+  }
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-rose-500;
+  }
+}
+
+/* Declared with @utility so the button variants below can @apply it (Tailwind v4 requirement). */
+@utility btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50;
+}
+
+@layer components {
+  .btn-primary {
+    @apply btn bg-rose-500 text-white hover:bg-rose-600;
+  }
+  .btn-secondary {
+    @apply btn border border-line bg-white text-ink hover:border-rose-500 hover:text-rose-600;
+  }
+  .btn-ghost {
+    @apply btn text-ink-soft hover:bg-blush-100 hover:text-ink;
+  }
+  .card {
+    @apply rounded-2xl border border-line bg-white;
+  }
+  .input {
+    @apply w-full rounded-xl border border-line bg-white px-3.5 py-2.5 text-sm placeholder:text-ink-soft/60 focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-500/20;
+  }
+  .label {
+    @apply mb-1.5 block text-sm font-medium text-ink;
+  }
+  /* Fine architectural grid that fades out toward the edges; used by <GridBackdrop />. */
+  .grid-backdrop {
+    background-image:
+      linear-gradient(to right, color-mix(in srgb, var(--color-ink) 7%, transparent) 1px, transparent 1px),
+      linear-gradient(to bottom, color-mix(in srgb, var(--color-ink) 7%, transparent) 1px, transparent 1px);
+    background-size: 56px 56px;
+    mask-image: radial-gradient(ellipse 80% 80% at 50% 40%, #000 30%, transparent 100%);
+  }
+  /* Checkerboard to show transparency in processed nail assets */
+  .checker {
+    background-color: #fff;
+    background-image:
+      linear-gradient(45deg, #f1e7ea 25%, transparent 25%), linear-gradient(-45deg, #f1e7ea 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #f1e7ea 75%), linear-gradient(-45deg, transparent 75%, #f1e7ea 75%);
+    background-size: 16px 16px;
+    background-position:
+      0 0,
+      0 8px,
+      8px -8px,
+      -8px 0;
+  }
+}

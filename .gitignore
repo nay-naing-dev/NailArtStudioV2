@@ -1,0 +1,9 @@
+node_modules/
+.env
+dist/
+server/uploads/*
+!server/uploads/.gitkeep
+*.log
+.DS_Store
+public/mediapipe/
+server/test-assets/output/
