@@ -79,7 +79,7 @@ export default function TryOn() {
   const [ai, setAi] = useState({ state: 'idle' }); // idle | running | done | error  (+ result, error, designName)
   const [showGuides, setShowGuides] = useState(false);
 
-  const designs = useQuery({ queryKey: ['designs', { limit: 100 }], queryFn: () => designsApi.list({ limit: 100 }) });
+  const designs = useQuery({ queryKey: ['designs', { limit: 100, kind: 'design' }], queryFn: () => designsApi.list({ limit: 100, kind: 'design' }) });
   const design = designs.data?.items.find((d) => d.id === designId);
 
   // Start downloading the model straight away so detection is quick once a photo is chosen.
@@ -252,7 +252,7 @@ export default function TryOn() {
               />
             ) : (
               <label className="flex cursor-pointer flex-col items-center gap-3 p-10 text-center">
-                <span className="flex size-16 items-center justify-center rounded-full bg-white text-rose-500 shadow">
+                <span className="flex size-16 items-center justify-center rounded-sm bg-white text-rose-500 shadow">
                   <Hand className="size-8" />
                 </span>
                 <span className="font-medium">{t('tryon.upload')}</span>
@@ -360,7 +360,7 @@ export default function TryOn() {
                     key={d.id}
                     onClick={() => setParams({ design: d.id }, { replace: true })}
                     title={d.name}
-                    className={`aspect-[2/3] overflow-hidden rounded-[40%/30%] ring-2 ring-offset-2 transition ${
+                    className={`aspect-[2/3] overflow-hidden rounded-none ring-2 ring-offset-2 transition ${
                       d.id === designId ? 'ring-rose-500' : 'ring-transparent hover:ring-rose-500/40'
                     }`}
                   >
@@ -446,7 +446,7 @@ export default function TryOn() {
                   <button
                     key={n.id}
                     onClick={() => setSelectedId(n.id)}
-                    className={`rounded-full px-2.5 py-1 text-xs transition ${
+                    className={`rounded-sm px-2.5 py-1 text-xs transition ${
                       n.id === selectedId ? 'bg-ink text-white' : 'border border-line bg-white'
                     } ${adjust[n.id]?.hidden ? 'line-through opacity-50' : ''}`}
                   >

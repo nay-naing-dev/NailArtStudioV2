@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { APPOINTMENT_STATUSES } from '../models/Appointment.js';
+import { DESIGN_KINDS } from '../models/Design.js';
 
 export const objectId = z.string().regex(/^[a-f0-9]{24}$/i, 'Invalid id');
 export const idParams = z.object({ id: objectId });
@@ -36,6 +37,7 @@ const skinTolerance = z.coerce.number().min(0).max(5);
 export const createDesignBody = z.object({
   name: z.string().trim().min(1).max(100),
   description: z.string().trim().max(1000).optional(),
+  kind: z.enum(DESIGN_KINDS).optional(),
   category: z.string().trim().max(40).optional(),
   tags: tags.optional(),
   price: z.coerce.number().min(0),
@@ -48,6 +50,7 @@ export const updateDesignBody = createDesignBody.partial().extend({ isActive: bo
 export const reprocessBody = z.object({ skinTolerance: skinTolerance.optional() });
 
 export const listDesignsQuery = z.object({
+  kind: z.enum(DESIGN_KINDS).optional(),
   category: z.string().trim().optional(),
   search: z.string().trim().max(100).optional(),
   all: boolish.optional(),

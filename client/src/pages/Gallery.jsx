@@ -58,7 +58,7 @@ export default function Gallery() {
               <button
                 key={c || "all"}
                 onClick={() => setCategory(c)}
-                className={`rounded-full px-3.5 py-1.5 text-sm capitalize transition ${
+                className={`rounded-sm px-3.5 py-1.5 text-sm capitalize transition ${
                   category === c
                     ? "bg-ink text-white"
                     : "border border-line bg-white text-ink-soft hover:text-ink"

@@ -6,11 +6,12 @@ import { Archive, ArchiveRestore, ArrowLeft, ImageUp, RefreshCw, Wand2 } from 'l
 import { designsApi, errorMessage } from '../../lib/api';
 import { Field, PageLoader, ProcessingBadge, Spinner } from '../../components/ui';
 
-const EMPTY = { name: '', description: '', category: '', tags: '', price: '', durationMinutes: 60 };
+const EMPTY = { kind: 'design', name: '', description: '', category: '', tags: '', price: '', durationMinutes: 60 };
 const busy = (d) => ['pending', 'processing'].includes(d?.processing?.status);
 
 function toForm(d) {
   return {
+    kind: d.kind ?? 'design',
     name: d.name,
     description: d.description ?? '',
     category: d.category ?? '',
@@ -90,7 +91,7 @@ export default function DesignEditor() {
       Object.entries(form).forEach(([k, v]) => v !== '' && v != null && fd.append(k, v));
       if (file) {
         fd.append('image', file);
-        fd.append('skinTolerance', tolerance);
+        if (form.kind !== 'service') fd.append('skinTolerance', tolerance);
       }
       return isNew ? designsApi.create(fd) : designsApi.update(id, fd);
     },
@@ -174,7 +175,7 @@ export default function DesignEditor() {
               {design.dominantColor && (
                 <>
                   {' '}· main colour{' '}
-                  <span className="inline-block size-3 rounded-full align-middle ring-1 ring-line" style={{ background: design.dominantColor }} />{' '}
+                  <span className="inline-block size-3 rounded-sm align-middle ring-1 ring-line" style={{ background: design.dominantColor }} />{' '}
                   {design.dominantColor}
                 </>
               )}
@@ -212,7 +213,7 @@ export default function DesignEditor() {
               type="file"
               accept="image/jpeg,image/png,image/webp,image/avif,image/heic,image/heif"
               className="sr-only"
-              required={isNew}
+              required={isNew && form.kind !== 'service'}
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
             />
           </label>
@@ -229,6 +230,12 @@ export default function DesignEditor() {
               <input className="input" required maxLength={100} value={form.name} onChange={set('name')} />
             </Field>
           </div>
+          <Field label="Type" hint="Services (pedicure, foot spa) have no try-on, and a photo is optional.">
+            <select className="input" value={form.kind} onChange={set('kind')} disabled={!isNew}>
+              <option value="design">Nail design</option>
+              <option value="service">Service</option>
+            </select>
+          </Field>
           <Field label="Price">
             <input className="input" type="number" min={0} step="any" required value={form.price} onChange={set('price')} />
           </Field>

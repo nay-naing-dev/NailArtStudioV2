@@ -11,12 +11,16 @@ const assetSchema = new mongoose.Schema(
   { _id: false },
 );
 
+// 'design' = nail art (photo is processed for virtual try-on); 'service' = treatments such as pedicure or foot spa.
+export const DESIGN_KINDS = ['design', 'service'];
+
 export const PROCESSING_STATUSES = ['pending', 'processing', 'ready', 'failed'];
 
 const designSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true, maxlength: 100 },
     description: { type: String, trim: true, maxlength: 1000 },
+    kind: { type: String, enum: DESIGN_KINDS, default: 'design' },
     category: { type: String, trim: true, lowercase: true, default: 'general' },
     tags: [{ type: String, trim: true, lowercase: true }],
     price: { type: Number, required: true, min: 0 },
@@ -46,6 +50,7 @@ const designSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
+designSchema.index({ kind: 1, isActive: 1 });
 designSchema.index({ isActive: 1, 'processing.status': 1, createdAt: -1 });
 designSchema.index({ name: 'text', description: 'text', tags: 'text' });
 

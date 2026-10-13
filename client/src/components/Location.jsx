@@ -34,7 +34,7 @@ export default function Location() {
           {/* Map card */}
           <div className="card overflow-hidden shadow-lg shadow-rose-500/5">
             <div className="flex items-center gap-2 border-b border-line px-4 py-2.5 text-xs text-ink-soft">
-              <span className="size-2 rounded-full bg-rose-500" />
+              <span className="size-2 rounded-sm bg-rose-500" />
               <span className="truncate">{STUDIO.address}</span>
             </div>
             <iframe

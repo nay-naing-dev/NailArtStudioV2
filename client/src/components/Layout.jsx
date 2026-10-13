@@ -19,13 +19,13 @@ function LanguageToggle() {
     <button
       onClick={toggleLang}
       aria-label={t('nav.language')}
-      className="inline-flex items-center rounded-full border border-line bg-white p-0.5 text-xs font-medium"
+      className="inline-flex items-center rounded-sm border border-line bg-white p-0.5 text-xs font-medium"
     >
       {[
         ['en', 'ENG'],
         ['my', 'မြန်မာ'],
       ].map(([code, label]) => (
-        <span key={code} className={`rounded-full px-2.5 py-1 transition ${lang === code ? 'bg-ink text-white' : 'text-ink-soft'}`}>
+        <span key={code} className={`rounded-sm px-2.5 py-1 transition ${lang === code ? 'bg-ink text-white' : 'text-ink-soft'}`}>
           {label}
         </span>
       ))}
@@ -34,7 +34,7 @@ function LanguageToggle() {
 }
 
 const navClass = ({ isActive }) =>
-  `rounded-full px-3 py-1.5 text-sm transition ${isActive ? 'bg-blush-100 text-rose-700' : 'text-ink-soft hover:text-ink'}`;
+  `rounded-sm px-3 py-1.5 text-sm transition ${isActive ? 'bg-blush-100 text-rose-700' : 'text-ink-soft hover:text-ink'}`;
 
 export function Logo() {
   return (

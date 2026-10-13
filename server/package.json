@@ -12,6 +12,7 @@
     "start": "node src/server.js",
     "seed:admin": "node src/scripts/seedAdmin.js",
     "seed:artists": "node src/scripts/seedArtists.js",
+    "seed:services": "node src/scripts/seedServices.js",
     "test:isolation": "node src/scripts/testIsolation.js",
     "import:design": "node src/scripts/importDesign.js",
     "replicate:schema": "node src/scripts/replicateSchema.js"

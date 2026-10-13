@@ -27,7 +27,7 @@
     "titleAfter": "before you sit down.",
     "subtitle": "Browse our designs, try them on your own hand with a photo, and book your appointment online.",
     "ctaTryOn": "Try a design on",
-    "ctaBrowse": "Browse designs",
+    "ctaBrowse": "Browse Designs",
     "f1Title": "Try before you book",
     "f1Text": "Upload a photo of your hand and preview any design on your own nails.",
     "f2Title": "Book in a minute",
@@ -35,7 +35,8 @@
     "f3Title": "Hand-painted art",
     "f3Text": "Every design is painted by our artists, from minimal to maximal.",
     "latest": "Latest designs",
-    "seeAll": "See all"
+    "seeAll": "See all",
+    "ctaBook": "Book Now"
   },
   "gallery": {
     "title": "Designs",
@@ -53,7 +54,7 @@
     "guest": "Booking as a guest.",
     "loginLink": "Log in",
     "guestHint": "to manage your bookings later.",
-    "step1": "Choose a design (optional)",
+    "step1": "Choose a service or design (optional)",
     "decide": "Decide at the studio",
     "step2": "Pick a date and time",
     "timezone": "Times are shown in the studio's time zone ({{tz}}).",

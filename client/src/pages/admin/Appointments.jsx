@@ -105,7 +105,7 @@ export default function Appointments() {
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       {a.design?.swatchImage && (
-                        <img src={a.design.swatchImage.url} alt="" className="h-10 w-7 rounded-[40%/30%] object-cover" />
+                        <img src={a.design.swatchImage.url} alt="" className="h-10 w-7 rounded-none object-cover" />
                       )}
                       <div>
                         <p>{a.design?.name ?? '—'}</p>

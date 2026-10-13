@@ -1,6 +1,6 @@
 import { Link, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, CalendarPlus, Clock, Hand } from 'lucide-react';
+import { ArrowLeft, CalendarPlus, Clock, Footprints, Hand } from 'lucide-react';
 import { designsApi } from '../lib/api';
 import { formatPrice } from '../lib/format';
 import { ErrorState, PageLoader } from '../components/ui';
@@ -24,11 +24,13 @@ export default function DesignDetail() {
       </Link>
       <div className="grid gap-10 md:grid-cols-2">
         <div className="space-y-4">
-          <img
-            src={design.originalImage.url}
-            alt={design.name}
-            className="aspect-[4/5] w-full rounded-3xl object-cover"
-          />
+          {design.originalImage?.url ? (
+            <img src={design.originalImage.url} alt={design.name} className="aspect-[4/5] w-full rounded-3xl object-cover" />
+          ) : (
+            <div className="flex aspect-[4/5] w-full items-center justify-center bg-gradient-to-br from-blush-100 to-blush-200 text-rose-500/70">
+              <Footprints className="size-24" strokeWidth={1} />
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-4">
             {design.isolatedImage && (
               <figure className="checker card flex aspect-square items-center justify-center overflow-hidden p-4">
@@ -40,7 +42,7 @@ export default function DesignDetail() {
                 <img
                   src={design.swatchImage.url}
                   alt="Polish texture"
-                  className="h-full rounded-[45%/35%] object-cover shadow-md"
+                  className="h-full rounded-none object-cover shadow-md"
                 />
               </figure>
             )}
@@ -60,7 +62,7 @@ export default function DesignDetail() {
           {design.tags?.length > 0 && (
             <div className="mt-6 flex flex-wrap gap-2">
               {design.tags.map((t) => (
-                <span key={t} className="rounded-full bg-blush-100 px-3 py-1 text-xs text-rose-700">
+                <span key={t} className="rounded-sm bg-blush-100 px-3 py-1 text-xs text-rose-700">
                   #{t}
                 </span>
               ))}
@@ -68,11 +70,13 @@ export default function DesignDetail() {
           )}
           <div className="mt-10 flex flex-wrap gap-3">
             <Link to={`/book?design=${design.id}`} className="btn-primary">
-              <CalendarPlus className="size-4" /> Book this design
+              <CalendarPlus className="size-4" /> {design.kind === 'service' ? 'Book this service' : 'Book this design'}
             </Link>
-            <Link to={`/try-on?design=${design.id}`} className="btn-secondary">
-              <Hand className="size-4" /> Try it on my hand
-            </Link>
+            {design.kind !== 'service' && (
+              <Link to={`/try-on?design=${design.id}`} className="btn-secondary">
+                <Hand className="size-4" /> Try it on my hand
+              </Link>
+            )}
           </div>
         </div>
       </div>

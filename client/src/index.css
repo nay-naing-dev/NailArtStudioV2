@@ -13,6 +13,16 @@
 }
 
 @theme {
+  /* Sharp, architectural corners: cards/images/panels are square, small controls get a 2px edge. */
+  --radius-xs: 0;
+  --radius-sm: 0.125rem;
+  --radius-md: 0.125rem;
+  --radius-lg: 0.125rem;
+  --radius-xl: 0.125rem;
+  --radius-2xl: 0;
+  --radius-3xl: 0;
+  --radius-4xl: 0;
+
   --font-sans: 'Inter', 'Ayar Juno', 'Noto Sans Myanmar', ui-sans-serif, system-ui, sans-serif;
   --font-display: 'Fraunces', 'Ayar Juno', 'Noto Sans Myanmar', ui-serif, Georgia, serif;
 
@@ -95,7 +105,7 @@ html[data-theme='dark'] {
 
 /* Declared with @utility so the button variants below can @apply it (Tailwind v4 requirement). */
 @utility btn {
-  @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50;
+  @apply inline-flex items-center justify-center gap-2 rounded-sm px-5 py-2.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50;
 }
 
 @layer components {

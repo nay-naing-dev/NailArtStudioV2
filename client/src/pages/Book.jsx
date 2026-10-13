@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarCheck, Check } from "lucide-react";
+import { CalendarCheck, Check, Footprints } from "lucide-react";
 import {
   appointmentsApi,
   artistsApi,
@@ -20,7 +20,7 @@ function Step({ n, title, children }) {
   return (
     <section className="card min-w-0 p-4 shadow-sm sm:p-5 md:p-6">
       <h2 className="mb-4 flex items-center gap-3 font-sans text-base font-semibold">
-        <span className="flex size-7 items-center justify-center rounded-full bg-ink text-xs text-white">
+        <span className="flex size-7 items-center justify-center rounded-sm bg-ink text-xs text-white">
           {n}
         </span>
         {title}
@@ -104,7 +104,7 @@ export default function Book() {
     return (
       <div className="mx-auto max-w-lg px-4 py-16">
         <div className="card p-8 text-center">
-          <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+          <div className="mx-auto flex size-14 items-center justify-center rounded-sm bg-emerald-50 text-emerald-600">
             <Check className="size-7" />
           </div>
           <h1 className="mt-5 text-3xl font-semibold">{t("book.doneTitle")}</h1>
@@ -191,11 +191,13 @@ export default function Book() {
                     }`}
                     title={d.name}
                   >
-                    <img
-                      src={d.originalImage?.url}
-                      alt=""
-                      className="h-20 w-full object-cover"
-                    />
+                    {d.originalImage?.url ? (
+                      <img src={d.originalImage.url} alt="" className="h-20 w-full object-cover" />
+                    ) : (
+                      <span className="flex h-20 w-full items-center justify-center bg-blush-100 text-rose-500">
+                        <Footprints className="size-7" strokeWidth={1.5} />
+                      </span>
+                    )}
                     <span className="block truncate bg-white px-1.5 py-1 text-xs">
                       {d.name}
                     </span>
@@ -231,10 +233,10 @@ export default function Book() {
                       <img
                         src={a.image}
                         alt=""
-                        className="size-12 rounded-full object-cover"
+                        className="size-12 rounded-sm object-cover"
                       />
                     ) : (
-                      <span className="flex size-12 items-center justify-center rounded-full bg-blush-200 font-display text-lg text-rose-600">
+                      <span className="flex size-12 items-center justify-center rounded-sm bg-blush-200 font-display text-lg text-rose-600">
                         {a.name.charAt(0)}
                       </span>
                     )}

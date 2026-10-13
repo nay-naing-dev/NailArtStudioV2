@@ -17,8 +17,8 @@ const FEATURES = [
 export default function Home() {
   const { t } = useI18n();
   const { data } = useQuery({
-    queryKey: ["designs", { limit: 6 }],
-    queryFn: () => designsApi.list({ limit: 6 }),
+    queryKey: ["designs", { limit: 6, kind: "design" }],
+    queryFn: () => designsApi.list({ limit: 6, kind: "design" }),
   });
 
   return (
@@ -27,27 +27,21 @@ export default function Home() {
         <GridBackdrop />
         <section className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-14 md:grid-cols-2 md:py-24">
           <div>
-            <p className="mb-4 inline-flex items-center gap-2 rounded-full bg-blush-100 px-3 py-1 text-xs font-medium text-rose-700">
-              <Sparkles className="size-3.5" /> {t("home.badge")}
-            </p>
-            <h1 className="text-4xl leading-tight font-semibold md:text-6xl">
+            <h1 className="text-5xl leading-[1.05] font-semibold sm:text-6xl md:text-7xl">
               {t("home.titleBefore")}{" "}
               <em className="text-rose-500">{t("home.titleEm")}</em>{" "}
               {t("home.titleAfter")}
             </h1>
-            <p className="mt-5 max-w-md text-lg text-ink-soft">
-              {t("home.subtitle")}
-            </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Link to="/try-on" className="btn-primary">
-                {t("home.ctaTryOn")} <ArrowRight className="size-4" />
+            <div className="mt-10 flex flex-col gap-4 sm:flex-row">
+              <Link to="/book" className="btn-primary px-10 py-4 text-base">
+                {t("home.ctaBook")} <ArrowRight className="size-5" />
               </Link>
-              <Link to="/designs" className="btn-secondary">
+              <Link to="/designs" className="btn-secondary px-10 py-4 text-base">
                 {t("home.ctaBrowse")}
               </Link>
             </div>
           </div>
-          <HeroStack items={data?.items ?? []} />
+          <HeroStack items={(data?.items ?? []).filter((d) => d.originalImage)} />
         </section>
       </div>
 
@@ -81,7 +75,7 @@ export default function Home() {
                 {t("home.seeAll")}
               </Link>
             </div>
-            <DesignFan items={data.items} />
+            <DesignFan items={data.items.filter((d) => d.originalImage)} />
           </div>
         </section>
       )}

@@ -15,7 +15,7 @@ export async function createTryOn(req, res) {
   const mask = req.files?.mask?.[0];
   if (!photo || !mask) throw ApiError.badRequest('Both "photo" and "mask" images are required');
 
-  const design = await Design.findOne({ _id: req.body.designId, isActive: true, 'processing.status': 'ready' });
+  const design = await Design.findOne({ _id: req.body.designId, isActive: true, kind: { $ne: 'service' }, 'processing.status': 'ready' });
   if (!design) throw ApiError.badRequest('That design is not available');
 
   // Spending cap across all users, so a bug or abuse can't run up the Replicate bill.

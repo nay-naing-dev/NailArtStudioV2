@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { Footprints } from 'lucide-react';
 import { formatPrice } from '../lib/format';
 
 export default function DesignCard({ design }) {
@@ -8,17 +9,23 @@ export default function DesignCard({ design }) {
       className="group card overflow-hidden rounded-2xl shadow-md transition-all hover:-translate-y-0.5 hover:shadow-xl"
     >
       <div className="relative aspect-square overflow-hidden bg-blush-100">
-        <img
-          src={design.originalImage?.url}
-          alt={design.name}
-          loading="lazy"
-          className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-        />
+        {design.originalImage?.url ? (
+          <img
+            src={design.originalImage.url}
+            alt={design.name}
+            loading="lazy"
+            className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-blush-100 to-blush-200 text-rose-500/70">
+            <Footprints className="size-14" strokeWidth={1.25} />
+          </div>
+        )}
         {design.swatchImage && (
           <img
             src={design.swatchImage.url}
             alt=""
-            className="absolute bottom-3 right-3 h-14 w-10 rounded-[40%/30%] object-cover shadow-md ring-2 ring-white"
+            className="absolute bottom-3 right-3 h-14 w-10 rounded-none object-cover shadow-md ring-2 ring-white"
           />
         )}
       </div>

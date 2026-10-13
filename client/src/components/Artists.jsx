@@ -43,7 +43,7 @@ function ArtistSlide({ artist }) {
         {artist.specialties?.length > 0 && (
           <ul className="mt-6 flex flex-wrap gap-2">
             {artist.specialties.map((s) => (
-              <li key={s} className="rounded-full border border-line bg-blush-50 px-3 py-1 text-xs text-rose-700">
+              <li key={s} className="rounded-sm border border-line bg-blush-50 px-3 py-1 text-xs text-rose-700">
                 {s}
               </li>
             ))}
@@ -184,7 +184,7 @@ export function ArtistCarousel({ artists }) {
                 aria-label={a.name}
                 disabled={flipping}
                 onClick={() => goTo(i)}
-                className={`h-2 rounded-full transition-all duration-300 ${i === index ? 'w-8 bg-rose-500' : 'w-2 bg-rose-500/25 hover:bg-rose-500/50'}`}
+                className={`h-2 rounded-sm transition-all duration-300 ${i === index ? 'w-8 bg-rose-500' : 'w-2 bg-rose-500/25 hover:bg-rose-500/50'}`}
               />
             ))}
           </div>

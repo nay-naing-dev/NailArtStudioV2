@@ -14,8 +14,11 @@ async function storeOriginal(file) {
 }
 
 export async function listDesigns(req, res) {
-  const { category, search, all, page, limit } = req.query;
+  const { kind, category, search, all, page, limit } = req.query;
   const filter = all && isAdmin(req) ? {} : { ...publicFilter };
+  // Designs saved before `kind` existed have no value, so "design" means "anything that isn't a service".
+  if (kind === 'service') filter.kind = 'service';
+  else if (kind === 'design') filter.kind = { $ne: 'service' };
   if (category) filter.category = category.toLowerCase();
   if (search) filter.$text = { $search: search };
 
@@ -37,9 +40,20 @@ export async function getDesign(req, res) {
 }
 
 export async function createDesign(req, res) {
-  if (!req.file) throw ApiError.badRequest('A reference image is required (field "image")');
   const { skinTolerance, ...fields } = req.body;
 
+  // Services (pedicure, foot spa...) need no try-on processing, and the photo is optional.
+  if (fields.kind === 'service') {
+    const service = await Design.create({
+      ...fields,
+      originalImage: req.file ? await storeOriginal(req.file) : undefined,
+      processing: { status: 'ready' },
+      createdBy: req.user.id,
+    });
+    return res.status(201).json({ design: service });
+  }
+
+  if (!req.file) throw ApiError.badRequest('A reference image is required (field "image")');
   const originalImage = await storeOriginal(req.file);
   const design = await Design.create({
     ...fields,
@@ -60,7 +74,11 @@ export async function updateDesign(req, res) {
   design.set(fields);
 
   let reprocess = false;
-  if (req.file) {
+  if (req.file && design.kind === 'service') {
+    const old = design.originalImage;
+    design.originalImage = await storeOriginal(req.file);
+    if (old) await deleteImage(old);
+  } else if (req.file) {
     if (isProcessing(design.id)) throw ApiError.conflict('This design is still processing. Try again shortly.');
     const old = design.originalImage;
     design.originalImage = await storeOriginal(req.file);
