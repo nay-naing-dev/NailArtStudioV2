@@ -47,7 +47,7 @@ const STATUS_STYLES = {
 
 export function StatusBadge({ status }) {
   return (
-    <span className={`inline-flex rounded-sm px-2.5 py-0.5 text-xs font-medium ring-1 ${STATUS_STYLES[status]}`}>
+    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ${STATUS_STYLES[status]}`}>
       {STATUS_LABELS[status] ?? status}
     </span>
   );
@@ -64,7 +64,7 @@ export function ProcessingBadge({ status }) {
   const busy = status === 'pending' || status === 'processing';
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-sm px-2.5 py-0.5 text-xs font-medium ring-1 ${PROCESSING_STYLES[status]}`}
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ${PROCESSING_STYLES[status]}`}
     >
       {busy && <Loader2 className="size-3 animate-spin" aria-hidden />}
       {status === 'ready' ? 'Ready' : status === 'failed' ? 'Failed' : 'Processing'}

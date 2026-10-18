@@ -1,5 +1,5 @@
 import { aiTryOnEnabled, config } from '../config/env.js';
-import { Design } from '../models/Design.js';
+import { NailDesign } from '../models/NailDesign.js';
 import { TryOn } from '../models/TryOn.js';
 import { modelName } from '../services/replicate.js';
 import { processTryOn } from '../services/tryonProcessor.js';
@@ -15,7 +15,7 @@ export async function createTryOn(req, res) {
   const mask = req.files?.mask?.[0];
   if (!photo || !mask) throw ApiError.badRequest('Both "photo" and "mask" images are required');
 
-  const design = await Design.findOne({ _id: req.body.designId, isActive: true, kind: { $ne: 'service' }, 'processing.status': 'ready' });
+  const design = await NailDesign.findOne({ _id: req.body.designId, isActive: true, 'processing.status': 'ready' });
   if (!design) throw ApiError.badRequest('That design is not available');
 
   // Spending cap across all users, so a bug or abuse can't run up the Replicate bill.
@@ -34,7 +34,7 @@ export async function createTryOn(req, res) {
 }
 
 export async function getTryOn(req, res) {
-  const tryOn = await TryOn.findById(req.params.id).populate('design', 'name price');
+  const tryOn = await TryOn.findById(req.params.id).populate('design', 'title');
   // Results show a customer's hand, so only the owner (or an admin) may see them.
   if (!tryOn || (!tryOn.user.equals(req.user._id) && req.user.role !== 'admin')) throw ApiError.notFound('Try-on not found');
   res.json({ tryOn });

@@ -4,6 +4,7 @@
     "footer": "Nail Art Studio"
   },
   "nav": {
+    "services": "Services",
     "designs": "Designs",
     "tryOn": "Virtual try-on",
     "book": "Book",
@@ -31,12 +32,23 @@
     "f1Title": "Try before you book",
     "f1Text": "Upload a photo of your hand and preview any design on your own nails.",
     "f2Title": "Book in a minute",
-    "f2Text": "Pick a design, a day and a time slot. No phone calls needed.",
+    "f2Text": "Pick a service, a day and a time slot. No phone calls needed.",
     "f3Title": "Hand-painted art",
     "f3Text": "Every design is painted by our artists, from minimal to maximal.",
     "latest": "Latest designs",
     "seeAll": "See all",
     "ctaBook": "Book Now"
+  },
+  "services": {
+    "title": "Services and pricing",
+    "subtitle": "Choose a treatment, see what it costs and how long it takes, then book it.",
+    "all": "All",
+    "loadError": "Couldn't load services.",
+    "emptyTitle": "No services yet",
+    "emptySoon": "Our service menu is coming soon.",
+    "book": "Book",
+    "designsHint": "Looking for nail art?",
+    "designsLink": "Browse designs"
   },
   "gallery": {
     "title": "Designs",
@@ -54,7 +66,13 @@
     "guest": "Booking as a guest.",
     "loginLink": "Log in",
     "guestHint": "to manage your bookings later.",
-    "step1": "Choose a service or design (optional)",
+    "step1": "Choose a service",
+    "stepDesign": "Add a nail design (optional)",
+    "noDesign": "No design",
+    "service": "Service",
+    "duration": "Duration",
+    "minutes": "{{n}} min",
+    "noServices": "No services are available to book right now.",
     "decide": "Decide at the studio",
     "step2": "Pick a date and time",
     "timezone": "Times are shown in the studio's time zone ({{tz}}).",
@@ -77,9 +95,25 @@
     "doneConfirmNote": "The studio will confirm it shortly by email or phone.",
     "viewBookings": "View my bookings",
     "backToDesigns": "Back to designs",
+    "backToServices": "Back to services",
     "stepArtist": "Choose an artist (optional)",
     "anyArtist": "Any artist",
-    "artist": "Artist"
+    "artist": "Artist",
+    "subtotal": "Subtotal",
+    "total": "Total",
+    "comboDiscount": "Service + Design combo discount",
+    "promoLabel": "Promo code",
+    "promoPlaceholder": "Enter a code",
+    "promoApply": "Apply",
+    "promoRemove": "Remove promo code",
+    "promoApplied": "Promo code applied.",
+    "promoReasons": {
+      "not_found": "That promo code isn't valid.",
+      "scheduled": "This promo code isn't active yet.",
+      "expired": "This promo code has expired.",
+      "inactive": "This promo code is no longer available.",
+      "superseded": "A better promotion is already applied to this booking."
+    }
   },
   "tryon": {
     "title": "Virtual try-on",
@@ -100,6 +134,8 @@
     "tip": "Tip: tap a nail to select it, and drag to move it.",
     "design": "Design",
     "noDesigns": "No designs available yet.",
+    "prevDesigns": "Previous designs",
+    "nextDesigns": "Next designs",
     "aiTitle": "Realistic AI photo",
     "aiResult": "Realistic result",
     "aiDesc": "Generates a photo-realistic version of this design on your hand. Adjust the nails in the preview first. It takes up to a minute.",
@@ -128,7 +164,8 @@
       "middle": "Middle",
       "ring": "Ring",
       "pinky": "Pinky"
-    }
+    },
+    "shape": "Nail shape"
   },
   "artists": {
     "title": "Meet Our Artists",
@@ -161,5 +198,13 @@
     "label": "Theme",
     "light": "Light",
     "dark": "Dark"
+  },
+  "shapes": {
+    "Almond": "Almond",
+    "Square": "Square",
+    "Coffin": "Coffin",
+    "Stiletto": "Stiletto",
+    "Oval": "Oval",
+    "Round": "Round"
   }
 }

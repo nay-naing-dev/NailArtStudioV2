@@ -64,6 +64,25 @@ export const config = {
   },
   defaultSkinTolerance: Number(process.env.DEFAULT_SKIN_TOLERANCE || 2.5),
 
+  pricing: {
+    // Percent off when a booking includes both a service and a nail design. 0 turns it off.
+    comboDiscountPercent: Math.min(100, Math.max(0, Number(process.env.COMBO_DISCOUNT_PERCENT ?? 5))),
+  },
+
+  // Outgoing email (admin broadcasts). Disabled until SMTP_HOST is set.
+  mail: {
+    host: process.env.SMTP_HOST || '',
+    port: Number(process.env.SMTP_PORT || 587),
+    // true for port 465 (implicit TLS); 587 upgrades with STARTTLS
+    secure: (process.env.SMTP_SECURE ?? String(Number(process.env.SMTP_PORT) === 465)) === 'true',
+    user: process.env.SMTP_USER || '',
+    pass: process.env.SMTP_PASS || '',
+    from: process.env.MAIL_FROM || '',
+    studioName: process.env.STUDIO_NAME || 'Nail Studio',
+    // Messages sent at once per broadcast; keep low to stay under the provider's rate limit
+    concurrency: Math.max(1, Number(process.env.MAIL_CONCURRENCY || 5)),
+  },
+
   studio: {
     timezone: process.env.STUDIO_TIMEZONE || 'UTC',
     openTime: process.env.OPEN_TIME || '10:00',
@@ -79,6 +98,8 @@ export const config = {
 };
 
 export const aiTryOnEnabled = () => Boolean(config.replicate.token);
+
+export const mailEnabled = () => Boolean(config.mail.host && config.mail.from);
 
 export const cloudinaryEnabled = Boolean(
   config.cloudinary.cloudName && config.cloudinary.apiKey && config.cloudinary.apiSecret,

@@ -13,18 +13,14 @@
 }
 
 @theme {
-  /* Sharp, architectural corners: cards/images/panels are square, small controls get a 2px edge. */
-  --radius-xs: 0;
-  --radius-sm: 0.125rem;
-  --radius-md: 0.125rem;
-  --radius-lg: 0.125rem;
-  --radius-xl: 0.125rem;
-  --radius-2xl: 0;
-  --radius-3xl: 0;
-  --radius-4xl: 0;
-
   --font-sans: 'Inter', 'Ayar Juno', 'Noto Sans Myanmar', ui-sans-serif, system-ui, sans-serif;
   --font-display: 'Fraunces', 'Ayar Juno', 'Noto Sans Myanmar', ui-serif, Georgia, serif;
+
+  /* Nail-inspired radii: a crisp square corner on one diagonal, a long almond sweep on the other. */
+  --radius-nail: 0.25rem 1.75rem 0.5rem 1.75rem;
+  --radius-nail-alt: 1.75rem 0.25rem 1.75rem 0.5rem;
+  --radius-nail-sm: 0.2rem 1.1rem 0.35rem 1.1rem;
+  --radius-nail-sm-alt: 1.1rem 0.2rem 1.1rem 0.35rem;
 
   --color-ink: #2a1a20;
   --color-ink-soft: #6b5860;
@@ -105,24 +101,43 @@ html[data-theme='dark'] {
 
 /* Declared with @utility so the button variants below can @apply it (Tailwind v4 requirement). */
 @utility btn {
-  @apply inline-flex items-center justify-center gap-2 rounded-sm px-5 py-2.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50;
+  @apply inline-flex items-center justify-center gap-2 rounded-nail px-5 py-2.5 text-sm font-medium transition-[color,background-color,border-color,box-shadow,transform,opacity,border-radius] duration-300 hover:rounded-nail-alt disabled:cursor-not-allowed disabled:opacity-50;
+}
+
+/* Small pill-sized variant for filter tabs, chips and nav links. Flips its sweep when active or hovered. */
+@utility pill {
+  @apply rounded-nail-sm transition-[color,background-color,border-color,border-radius] duration-300 hover:rounded-nail-sm-alt;
+}
+@utility pill-active {
+  @apply rounded-nail-sm-alt;
 }
 
 @layer components {
+  /* Solid soft-toned button with a faint coloured glow. */
   .btn-primary {
-    @apply btn bg-rose-500 text-white hover:bg-rose-600;
+    @apply btn bg-rose-500 text-white shadow-lg shadow-rose-500/20 hover:-translate-y-0.5 hover:bg-rose-600 hover:shadow-xl hover:shadow-rose-500/25;
   }
+  /* Hero-sized variant: more air and wider letter-spacing for a premium feel. */
+  .btn-lg {
+    @apply px-10 py-4 text-base tracking-wide;
+  }
+  /* Ghost button for use over photos or dark areas: white hairline, frosted on hover. */
+  .btn-ghost-light {
+    @apply btn border border-white/40 bg-transparent text-[#fff] backdrop-blur-sm hover:bg-white/10;
+  }
+  /* Ghost button: transparent with a fine hairline border; fills in softly on hover. */
   .btn-secondary {
-    @apply btn border border-line bg-white text-ink hover:border-rose-500 hover:text-rose-600;
+    @apply btn border border-ink/25 bg-transparent text-ink backdrop-blur-sm hover:border-rose-500 hover:bg-rose-500/5 hover:text-rose-600;
   }
   .btn-ghost {
     @apply btn text-ink-soft hover:bg-blush-100 hover:text-ink;
   }
+  /* Soft frosted card: translucent so the grid backdrop shows through, with a gentle shadow. */
   .card {
-    @apply rounded-2xl border border-line bg-white;
+    @apply rounded-3xl border border-line/80 bg-white/80 shadow-lg shadow-rose-500/5 backdrop-blur-md;
   }
   .input {
-    @apply w-full rounded-xl border border-line bg-white px-3.5 py-2.5 text-sm placeholder:text-ink-soft/60 focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-500/20;
+    @apply w-full rounded-2xl border border-line bg-white/70 px-4 py-3 text-sm placeholder:text-ink-soft/60 focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-500/20;
   }
   .label {
     @apply mb-1.5 block text-sm font-medium text-ink;

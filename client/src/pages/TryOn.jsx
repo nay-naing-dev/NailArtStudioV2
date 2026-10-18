@@ -4,15 +4,19 @@ import { useQuery } from '@tanstack/react-query';
 import { CalendarPlus, Camera, Download, Eye, EyeOff, Hand, ImageUp, RotateCcw, ScanLine, Sparkles, X } from 'lucide-react';
 import { designsApi, errorMessage, tryonApi } from '../lib/api';
 import { useAuth } from '../lib/auth';
+import DesignCarousel from '../components/DesignCarousel';
+import { GridBackdrop } from '../components/GridBackdrop';
 import { Spinner } from '../components/ui';
 import { useI18n } from '../lib/i18n';
 import { generateTryOn } from '../tryon/aiTryOn';
 import { detectHands, getHandLandmarker } from '../tryon/handDetector';
 import { adjustNail, computeNails, hitTest, isBackOfHand, refineNails } from '../tryon/nailGeometry';
+import { applyShape, DEFAULT_SHAPE, NAIL_SHAPES } from '../tryon/nailShapeProfile';
+import { NailShapeIcon } from '../lib/nailShapes';
 import { renderScene } from '../tryon/renderNails';
 
 const MAX_PHOTO = 1400;
-const DEFAULT_SETTINGS = { opacity: 0.96, gloss: 0.6, shading: 1, lengthScale: 1, widthScale: 1 };
+const DEFAULT_SETTINGS = { opacity: 0.96, gloss: 0.6, shading: 1, lengthScale: 1, widthScale: 1, shape: DEFAULT_SHAPE };
 
 /** Loads an image for canvas use. Retries with a cache-buster in case a non-CORS copy is cached. */
 function loadImage(url) {
@@ -79,7 +83,7 @@ export default function TryOn() {
   const [ai, setAi] = useState({ state: 'idle' }); // idle | running | done | error  (+ result, error, designName)
   const [showGuides, setShowGuides] = useState(false);
 
-  const designs = useQuery({ queryKey: ['designs', { limit: 100, kind: 'design' }], queryFn: () => designsApi.list({ limit: 100, kind: 'design' }) });
+  const designs = useQuery({ queryKey: ['designs', { limit: 100 }], queryFn: () => designsApi.list({ limit: 100 }) });
   const design = designs.data?.items.find((d) => d.id === designId);
 
   // Start downloading the model straight away so detection is quick once a photo is chosen.
@@ -139,7 +143,7 @@ export default function TryOn() {
       hands
         .flatMap((h) => h.nails)
         .filter((n) => !adjust[n.id]?.hidden)
-        .map((n) => adjustNail(n, adjust[n.id], settings)),
+        .map((n) => applyShape(adjustNail(n, adjust[n.id], settings), settings.shape)),
     [hands, adjust, settings],
   );
 
@@ -194,7 +198,7 @@ export default function TryOn() {
       (blob) => {
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = `try-on-${design?.name?.replace(/\W+/g, '-').toLowerCase() || 'nails'}.jpg`;
+        a.download = `try-on-${design?.title?.replace(/\W+/g, '-').toLowerCase() || 'nails'}.jpg`;
         a.click();
         setTimeout(() => URL.revokeObjectURL(a.href), 1000);
       },
@@ -211,7 +215,7 @@ export default function TryOn() {
   };
 
   const runAi = async () => {
-    setAi({ state: 'running', stage: 'pending', designName: design?.name });
+    setAi({ state: 'running', stage: 'pending', designName: design?.title });
     try {
       // Uses the nails as the customer adjusted them, so the AI edits exactly what they see in the preview.
       const result = await generateTryOn({
@@ -220,7 +224,7 @@ export default function TryOn() {
         designId,
         onStatus: (stage) => setAi((a) => (a.state === 'running' ? { ...a, stage } : a)),
       });
-      setAi({ state: 'done', result, designName: design?.name });
+      setAi({ state: 'done', result, designName: design?.title });
     } catch (err) {
       setAi({ state: 'error', error: errorMessage(err, 'Generation failed') });
     }
@@ -232,18 +236,23 @@ export default function TryOn() {
   const palmWarning = status === 'ready' && hands.every((h) => !h.back);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10">
-      <h1 className="text-4xl font-semibold">{t('tryon.title')}</h1>
+    // overflow-x-clip (not hidden) so the sticky preview below still works.
+    <div className="relative isolate overflow-x-clip">
+      <GridBackdrop className="h-64" />
+      <div className="mx-auto max-w-6xl px-4 py-8 md:py-10">
+      <h1 className="text-3xl font-semibold md:text-4xl">{t('tryon.title')}</h1>
       <p className="mt-2 text-ink-soft">{t('tryon.subtitle')}</p>
 
-      <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_340px]">
-        {/* Stage */}
-        <div>
-          <div className="card relative flex min-h-80 items-center justify-center overflow-hidden bg-blush-100/50">
+      <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:gap-8">
+        {/* Stage. Desktop: the whole column sticks beside the controls. Mobile: the wrapper dissolves
+            (display: contents) so only the preview below pins itself under the header. */}
+        <div className="contents lg:sticky lg:top-20 lg:block lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto lg:pr-1">
+          <div className={photo ? 'sticky top-16 z-20 -mx-4 bg-blush-50/90 px-4 py-2 backdrop-blur-md lg:static lg:mx-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none' : ''}>
+          <div className={`card relative flex items-center justify-center overflow-hidden bg-blush-100/50 ${photo ? '' : 'min-h-80'}`}>
             {photo ? (
               <canvas
                 ref={canvasRef}
-                className={`max-h-[75vh] w-auto max-w-full touch-none ${nails.length ? 'cursor-pointer' : ''}`}
+                className={`max-h-[34vh] w-auto max-w-full touch-none sm:max-h-[44vh] lg:max-h-[calc(100vh-14rem)] ${nails.length ? 'cursor-pointer' : ''}`}
                 onPointerDown={onPointerDown}
                 onPointerMove={onPointerMove}
                 onPointerUp={onPointerUp}
@@ -252,7 +261,7 @@ export default function TryOn() {
               />
             ) : (
               <label className="flex cursor-pointer flex-col items-center gap-3 p-10 text-center">
-                <span className="flex size-16 items-center justify-center rounded-sm bg-white text-rose-500 shadow">
+                <span className="flex size-16 items-center justify-center rounded-full bg-white text-rose-500 shadow">
                   <Hand className="size-8" />
                 </span>
                 <span className="font-medium">{t('tryon.upload')}</span>
@@ -272,6 +281,37 @@ export default function TryOn() {
                 <p className="text-sm font-medium">{t('tryon.finding')}</p>
               </div>
             )}
+          </div>
+
+          {photo && (
+            <div className="mt-2 flex flex-wrap gap-2 lg:mt-4">
+              <label className="btn-secondary cursor-pointer max-sm:px-3">
+                <Camera className="size-4" /> <span className="max-sm:sr-only">{t('tryon.newPhoto')}</span>
+                <input type="file" accept="image/*" className="sr-only" onChange={(e) => handleFile(e.target.files?.[0])} />
+              </label>
+              <button
+                className="btn-secondary select-none max-sm:px-3"
+                onPointerDown={() => setCompare(true)}
+                onPointerUp={() => setCompare(false)}
+                onPointerLeave={() => setCompare(false)}
+                onKeyDown={(e) => e.key === ' ' && setCompare(true)}
+                onKeyUp={() => setCompare(false)}
+              >
+                {compare ? <EyeOff className="size-4" /> : <Eye className="size-4" />} <span className="max-sm:sr-only">{t('tryon.compare')}</span>
+              </button>
+              <button className={`btn-secondary max-sm:px-3 ${showGuides ? 'border-rose-500 text-rose-600' : ''}`} onClick={() => setShowGuides(!showGuides)}>
+                <ScanLine className="size-4" /> <span className="max-sm:sr-only">{t('tryon.guides')}</span>
+              </button>
+              <button className="btn-secondary max-sm:px-3" onClick={prepareDownload} disabled={status !== 'ready'}>
+                <Download className="size-4" /> <span className="max-sm:sr-only">{t('tryon.saveImage')}</span>
+              </button>
+              {design && (
+                <Link to={`/book?design=${design.id}`} className="btn-primary ml-auto">
+                  <CalendarPlus className="size-4" /> {t('tryon.bookLook')}
+                </Link>
+              )}
+            </div>
+          )}
           </div>
 
           {status === 'no-hands' && (
@@ -313,35 +353,6 @@ export default function TryOn() {
             </section>
           )}
 
-          {photo && (
-            <div className="mt-4 flex flex-wrap gap-2">
-              <label className="btn-secondary cursor-pointer">
-                <Camera className="size-4" /> {t('tryon.newPhoto')}
-                <input type="file" accept="image/*" className="sr-only" onChange={(e) => handleFile(e.target.files?.[0])} />
-              </label>
-              <button
-                className="btn-secondary select-none"
-                onPointerDown={() => setCompare(true)}
-                onPointerUp={() => setCompare(false)}
-                onPointerLeave={() => setCompare(false)}
-                onKeyDown={(e) => e.key === ' ' && setCompare(true)}
-                onKeyUp={() => setCompare(false)}
-              >
-                {compare ? <EyeOff className="size-4" /> : <Eye className="size-4" />} {t('tryon.compare')}
-              </button>
-              <button className={`btn-secondary ${showGuides ? 'border-rose-500 text-rose-600' : ''}`} onClick={() => setShowGuides(!showGuides)}>
-                <ScanLine className="size-4" /> {t('tryon.guides')}
-              </button>
-              <button className="btn-secondary" onClick={prepareDownload} disabled={status !== 'ready'}>
-                <Download className="size-4" /> {t('tryon.saveImage')}
-              </button>
-              {design && (
-                <Link to={`/book?design=${design.id}`} className="btn-primary ml-auto">
-                  <CalendarPlus className="size-4" /> {t('tryon.bookLook')}
-                </Link>
-              )}
-            </div>
-          )}
           {status === 'ready' && (
             <p className="mt-3 text-xs text-ink-soft">{t('tryon.tip')}</p>
           )}
@@ -349,29 +360,24 @@ export default function TryOn() {
 
         {/* Controls */}
         <aside className="space-y-4">
-          <section className="card p-4">
-            <h2 className="mb-3 font-sans text-sm font-semibold">{t('tryon.design')}</h2>
+          <section className="card p-3">
+            <div className="mb-1 flex items-baseline justify-between gap-3">
+              <h2 className="font-sans text-sm font-semibold">{t('tryon.design')}</h2>
+              {design && <p className="truncate text-xs text-ink-soft">{design.title}</p>}
+            </div>
             {designs.isLoading ? (
               <Spinner />
             ) : designs.data?.items.length ? (
-              <div className="grid grid-cols-4 gap-2">
-                {designs.data.items.map((d) => (
-                  <button
-                    key={d.id}
-                    onClick={() => setParams({ design: d.id }, { replace: true })}
-                    title={d.name}
-                    className={`aspect-[2/3] overflow-hidden rounded-none ring-2 ring-offset-2 transition ${
-                      d.id === designId ? 'ring-rose-500' : 'ring-transparent hover:ring-rose-500/40'
-                    }`}
-                  >
-                    <img src={d.swatchImage?.url} alt={d.name} className="size-full object-cover" />
-                  </button>
-                ))}
-              </div>
+              <DesignCarousel
+                items={designs.data.items}
+                selectedId={designId}
+                onSelect={(id) => setParams({ design: id }, { replace: true })}
+                prevLabel={t('tryon.prevDesigns')}
+                nextLabel={t('tryon.nextDesigns')}
+              />
             ) : (
               <p className="text-sm text-ink-soft">{t('tryon.noDesigns')}</p>
             )}
-            {design && <p className="mt-3 text-sm font-medium">{design.name}</p>}
           </section>
 
           {aiConfig.data && !aiConfig.data.enabled && isAdmin && (
@@ -431,6 +437,29 @@ export default function TryOn() {
                 {t('common.reset')}
               </button>
             </div>
+            <div>
+              <span className="mb-1.5 block text-xs font-medium">{t('tryon.shape')}</span>
+              <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label={t('tryon.shape')}>
+                {NAIL_SHAPES.map((shape) => {
+                  const on = settings.shape === shape;
+                  return (
+                    <button
+                      key={shape}
+                      type="button"
+                      role="radio"
+                      aria-checked={on}
+                      onClick={() => setSettings({ ...settings, shape })}
+                      className={`pill flex flex-col items-center gap-1 border px-1 py-2 text-[11px] ${
+                        on ? 'pill-active border-rose-500 bg-rose-500/10 text-rose-600' : 'border-line bg-white/60 text-ink-soft hover:border-rose-500/50 hover:text-ink'
+                      }`}
+                    >
+                      <NailShapeIcon shape={shape} className="h-6 w-4" />
+                      {t(`shapes.${shape}`)}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
             <Slider label={t('tryon.length')} value={settings.lengthScale} min={0.6} max={1.6} step={0.02} onChange={(v) => setSettings({ ...settings, lengthScale: v })} />
             <Slider label={t('tryon.width')} value={settings.widthScale} min={0.6} max={1.4} step={0.02} onChange={(v) => setSettings({ ...settings, widthScale: v })} />
             <Slider label={t('tryon.gloss')} value={settings.gloss} min={0} max={1} step={0.05} onChange={(v) => setSettings({ ...settings, gloss: v })} />
@@ -446,8 +475,8 @@ export default function TryOn() {
                   <button
                     key={n.id}
                     onClick={() => setSelectedId(n.id)}
-                    className={`rounded-sm px-2.5 py-1 text-xs transition ${
-                      n.id === selectedId ? 'bg-ink text-white' : 'border border-line bg-white'
+                    className={`pill px-3 py-1 text-xs ${
+                      n.id === selectedId ? 'pill-active bg-ink text-white' : 'border border-line bg-white'
                     } ${adjust[n.id]?.hidden ? 'line-through opacity-50' : ''}`}
                   >
                     {hands.length > 1 && `${Number(n.id[0]) + 1}·`}
@@ -493,6 +522,7 @@ export default function TryOn() {
             {t('tryon.privacy')}
           </p>
         </aside>
+      </div>
       </div>
     </div>
   );

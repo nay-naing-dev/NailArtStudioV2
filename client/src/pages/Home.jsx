@@ -17,8 +17,8 @@ const FEATURES = [
 export default function Home() {
   const { t } = useI18n();
   const { data } = useQuery({
-    queryKey: ["designs", { limit: 6, kind: "design" }],
-    queryFn: () => designsApi.list({ limit: 6, kind: "design" }),
+    queryKey: ["designs", { limit: 6 }],
+    queryFn: () => designsApi.list({ limit: 6 }),
   });
 
   return (
@@ -33,15 +33,15 @@ export default function Home() {
               {t("home.titleAfter")}
             </h1>
             <div className="mt-10 flex flex-col gap-4 sm:flex-row">
-              <Link to="/book" className="btn-primary px-10 py-4 text-base">
+              <Link to="/book" className="btn-primary btn-lg">
                 {t("home.ctaBook")} <ArrowRight className="size-5" />
               </Link>
-              <Link to="/designs" className="btn-secondary px-10 py-4 text-base">
+              <Link to="/designs" className="btn-secondary btn-lg">
                 {t("home.ctaBrowse")}
               </Link>
             </div>
           </div>
-          <HeroStack items={(data?.items ?? []).filter((d) => d.originalImage)} />
+          <HeroStack items={(data?.items ?? []).filter((d) => d.imageUrl)} />
         </section>
       </div>
 
@@ -75,7 +75,7 @@ export default function Home() {
                 {t("home.seeAll")}
               </Link>
             </div>
-            <DesignFan items={data.items.filter((d) => d.originalImage)} />
+            <DesignFan items={data.items.filter((d) => d.imageUrl)} />
           </div>
         </section>
       )}

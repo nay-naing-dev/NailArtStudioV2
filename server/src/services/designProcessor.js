@@ -1,4 +1,4 @@
-import { Design } from '../models/Design.js';
+import { NailDesign } from '../models/NailDesign.js';
 import { isolateNails } from './nailIsolation.js';
 import { deleteImage, readImage, uploadImage } from './storage.js';
 import { config } from '../config/env.js';
@@ -18,7 +18,7 @@ export async function processDesign(designId, { buffer, skinTolerance } = {}) {
   const tolerance = skinTolerance ?? config.defaultSkinTolerance;
 
   try {
-    const design = await Design.findById(designId);
+    const design = await NailDesign.findById(designId);
     if (!design) return;
 
     design.processing = { status: 'processing', skinTolerance: tolerance, startedAt: new Date() };
@@ -36,6 +36,7 @@ export async function processDesign(designId, { buffer, skinTolerance } = {}) {
     design.isolatedImage = isolated;
     design.swatchImage = swatch;
     design.dominantColor = result.dominantColor;
+    design.textureEditedAt = undefined; // a fresh extraction replaces any hand-edited texture
     design.processing = {
       status: 'ready',
       method: result.method,
@@ -49,7 +50,7 @@ export async function processDesign(designId, { buffer, skinTolerance } = {}) {
     console.log(`[designs] ${design.id} processed: ${result.nailsDetected} nail(s), bg=${result.method}`);
   } catch (err) {
     console.error(`[designs] processing ${designId} failed:`, err);
-    await Design.updateOne(
+    await NailDesign.updateOne(
       { _id: designId },
       {
         $set: {

@@ -17,6 +17,8 @@
  *   4. Rotate the local tile back into place on the output canvas.
  */
 
+import { DEFAULT_SHAPE, shapeDistance, shapeOutline, shapeWidth } from './nailShapeProfile';
+
 const BARE_NAIL_LUMA = 165; // typical luminance of a bare nail plate in a well-exposed photo
 const SATURATION_MATCH = 0.9;
 
@@ -70,20 +72,18 @@ function boxBlur(src, w, h, r) {
   return out;
 }
 
-/** Superellipse distance: < 1 inside the nail. The tip end is squarer, the cuticle end rounder. */
-function nailDistance(nx, ny) {
-  const p = ny < 0 ? 2.8 : 2.2;
-  return (Math.abs(nx) ** p + Math.abs(ny) ** p) ** (1 / p);
-}
+
 
 /**
  * @param {CanvasRenderingContext2D} ctx  output context, already holding the photo
  * @param {HTMLCanvasElement} photo       the unmodified photo (lighting source)
- * @param {object} nail                   { cx, cy, width, length, angle }
+ * @param {object} nail                   { cx, cy, width, length, angle, shape }
  * @param {HTMLImageElement} swatch       design texture
  * @param {object} s                      { opacity, gloss, shading }
  */
 export function renderNail(ctx, photo, nail, swatch, s) {
+  const shape = nail.shape ?? DEFAULT_SHAPE;
+  const nailDistance = (nx, ny) => shapeDistance(shape, nx, ny);
   const W = Math.max(4, Math.round(nail.width));
   const L = Math.max(4, Math.round(nail.length));
   const pad = Math.ceil(Math.max(W, L) * 0.18) + 2;
@@ -181,7 +181,9 @@ export function renderNail(ctx, photo, nail, swatch, s) {
       const shade = clamp(shadeMap[i] / meanL, 0.5, 1.5) ** (0.9 * shading);
       const detail = 1 + clamp((lumMap[i] - shadeMap[i]) / meanL, -0.25, 0.25) * 0.5 * shading;
       // Curved nail plate: falls off toward the sides, darker toward the cuticle
-      const curve = (1 - 0.34 * Math.abs(nx) ** 2.2) * (1 - 0.16 * Math.max(0, ny) ** 2.5);
+      // (across-the-nail position is taken relative to the shape's local width, so tapered tips shade evenly)
+      const side = Math.min(1, Math.abs(nx) / Math.max(shapeWidth(shape, (ny + 1) / 2), 0.25));
+      const curve = (1 - 0.34 * side ** 2.2) * (1 - 0.16 * Math.max(0, ny) ** 2.5);
       const rim = 1 - 0.18 * smoothstep(0.82, 1, d);
       const k = (shading > 0 ? exposure : 1) * shade * detail * curve * rim;
 
@@ -233,7 +235,8 @@ export function renderScene(ctx, photo, nails, swatch, settings, { selectedId, s
       ctx.lineWidth = Math.max(1.5, photo.width / 600);
       ctx.strokeStyle = nail.id === selectedId ? '#c2416b' : 'rgba(255,255,255,0.8)';
       ctx.beginPath();
-      ctx.ellipse(0, 0, nail.width / 2 + 3, nail.length / 2 + 3, 0, 0, Math.PI * 2);
+      shapeOutline(nail.shape ?? DEFAULT_SHAPE, nail.width + 6, nail.length + 6).forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+      ctx.closePath();
       ctx.stroke();
       ctx.restore();
     }

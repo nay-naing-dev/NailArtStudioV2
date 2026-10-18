@@ -6,7 +6,10 @@ const OCCUPYING = new Set(['pending', 'confirmed']);
 
 const appointmentSchema = new mongoose.Schema(
   {
-    design: { type: mongoose.Schema.Types.ObjectId, ref: 'Design' },
+    // What is being booked. Required for new bookings; older ones may only carry a design.
+    service: { type: mongoose.Schema.Types.ObjectId, ref: 'Service' },
+    // Optional nail art the customer wants applied. It never affects price or duration.
+    design: { type: mongoose.Schema.Types.ObjectId, ref: 'NailDesign' },
     artist: { type: mongoose.Schema.Types.ObjectId, ref: 'Artist' }, // optional preferred artist
     customer: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // empty for guest bookings
     customerName: { type: String, required: true, trim: true, maxlength: 80 },
@@ -22,7 +25,21 @@ const appointmentSchema = new mongoose.Schema(
     // Mirrors OCCUPYING.has(status); backs the unique partial index below.
     active: { type: Boolean, default: true },
 
+    // Price snapshot. priceAtBooking is what the customer pays (after discounts); revenue stats use it.
+    subtotalAtBooking: Number,
     priceAtBooking: Number,
+    discounts: [
+      {
+        _id: false,
+        kind: { type: String, enum: ['combo', 'promotion'] },
+        title: String,
+        code: String,
+        promotion: { type: mongoose.Schema.Types.ObjectId, ref: 'Promotion' },
+        discountType: { type: String, enum: ['percentage', 'fixed'] },
+        discountValue: Number,
+        amount: Number,
+      },
+    ],
     notes: { type: String, trim: true, maxlength: 500 },
     adminNotes: { type: String, trim: true, maxlength: 1000 },
     statusHistory: [

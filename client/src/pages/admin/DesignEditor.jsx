@@ -2,22 +2,20 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { Archive, ArchiveRestore, ArrowLeft, ImageUp, RefreshCw, Wand2 } from 'lucide-react';
+import { Archive, ArchiveRestore, ArrowLeft, Crop, ImageUp, RefreshCw, Wand2 } from 'lucide-react';
 import { designsApi, errorMessage } from '../../lib/api';
 import { Field, PageLoader, ProcessingBadge, Spinner } from '../../components/ui';
+import ImageCropModal from '../../components/ImageCropModal';
 
-const EMPTY = { kind: 'design', name: '', description: '', category: '', tags: '', price: '', durationMinutes: 60 };
+const EMPTY = { title: '', description: '', category: '', tags: '' };
 const busy = (d) => ['pending', 'processing'].includes(d?.processing?.status);
 
 function toForm(d) {
   return {
-    kind: d.kind ?? 'design',
-    name: d.name,
+    title: d.title,
     description: d.description ?? '',
     category: d.category ?? '',
     tags: (d.tags ?? []).join(', '),
-    price: d.price,
-    durationMinutes: d.durationMinutes,
   };
 }
 
@@ -49,6 +47,7 @@ export default function DesignEditor() {
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState('');
   const [tolerance, setTolerance] = useState(2.5);
+  const [editingTexture, setEditingTexture] = useState(false);
 
   const { data: design, isLoading } = useQuery({
     queryKey: ['design', id],
@@ -91,7 +90,7 @@ export default function DesignEditor() {
       Object.entries(form).forEach(([k, v]) => v !== '' && v != null && fd.append(k, v));
       if (file) {
         fd.append('image', file);
-        if (form.kind !== 'service') fd.append('skinTolerance', tolerance);
+        fd.append('skinTolerance', tolerance);
       }
       return isNew ? designsApi.create(fd) : designsApi.update(id, fd);
     },
@@ -106,6 +105,15 @@ export default function DesignEditor() {
   const reprocess = useMutation({
     mutationFn: () => designsApi.reprocess(id, tolerance),
     onSuccess: (d) => onSaved(d, 'Re-extracting…'),
+    onError: (err) => toast.error(errorMessage(err)),
+  });
+
+  const saveTexture = useMutation({
+    mutationFn: (textureFile) => designsApi.updateTexture(id, textureFile),
+    onSuccess: (d) => {
+      setEditingTexture(false);
+      onSaved(d, 'Texture saved. The try-on now uses your edited version.');
+    },
     onError: (err) => toast.error(errorMessage(err)),
   });
 
@@ -125,14 +133,15 @@ export default function DesignEditor() {
   }
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
   const processing = busy(design);
+  const textureReady = !isNew && design.processing?.status === 'ready' && Boolean(design.swatchImage);
 
   return (
     <div className="mx-auto max-w-5xl">
       <Link to="/admin/designs" className="mb-4 inline-flex items-center gap-1.5 text-sm text-ink-soft hover:text-ink">
-        <ArrowLeft className="size-4" /> Designs
+        <ArrowLeft className="size-4" /> Nail designs
       </Link>
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-3xl font-semibold">{isNew ? 'Upload design' : design.name}</h1>
+        <h1 className="text-3xl font-semibold">{isNew ? 'Upload design' : design.title}</h1>
         {!isNew && (
           <div className="flex items-center gap-3">
             <ProcessingBadge status={design.processing?.status} />
@@ -168,6 +177,11 @@ export default function DesignEditor() {
               Extraction failed: {design.processing.error}. Try a different skin tolerance, or upload a clearer photo.
             </p>
           )}
+          {design.textureEditedAt && (
+            <p className="mt-3 rounded-2xl bg-rose-500/10 p-3 text-xs text-rose-700">
+              Texture hand-edited on {new Date(design.textureEditedAt).toLocaleString()}. Re-extracting will replace it.
+            </p>
+          )}
           {design.processing?.status === 'ready' && (
             <p className="mt-3 text-xs text-ink-soft">
               {design.processing.nailsDetected} nail(s) found · background removal: {design.processing.method} · skin
@@ -175,7 +189,7 @@ export default function DesignEditor() {
               {design.dominantColor && (
                 <>
                   {' '}· main colour{' '}
-                  <span className="inline-block size-3 rounded-sm align-middle ring-1 ring-line" style={{ background: design.dominantColor }} />{' '}
+                  <span className="inline-block size-3 rounded-full align-middle ring-1 ring-line" style={{ background: design.dominantColor }} />{' '}
                   {design.dominantColor}
                 </>
               )}
@@ -184,7 +198,17 @@ export default function DesignEditor() {
 
           <div className="card mt-4 flex flex-wrap items-end gap-4 p-4">
             <ToleranceSlider value={tolerance} onChange={setTolerance} />
-            <button className="btn-secondary" onClick={() => reprocess.mutate()} disabled={processing || reprocess.isPending}>
+            <button className="btn-secondary" onClick={() => setEditingTexture(true)} disabled={!textureReady || saveTexture.isPending}>
+              <Crop className="size-4" /> Edit texture
+            </button>
+            <button
+              className="btn-secondary"
+              onClick={() => {
+                if (design.textureEditedAt && !window.confirm('Re-extracting replaces your hand-edited texture. Continue?')) return;
+                reprocess.mutate();
+              }}
+              disabled={processing || reprocess.isPending}
+            >
               {processing ? <Spinner className="size-4" /> : <RefreshCw className="size-4" />} Re-extract
             </button>
           </div>
@@ -200,7 +224,7 @@ export default function DesignEditor() {
       >
         <div>
           <span className="label">{isNew ? 'Reference photo' : 'Replace photo'}</span>
-          <label className="checker flex aspect-[4/5] cursor-pointer flex-col items-center justify-center gap-2 overflow-hidden rounded-2xl border-2 border-dashed border-line text-sm text-ink-soft hover:border-rose-500">
+          <label className="checker flex aspect-[4/5] cursor-pointer flex-col items-center justify-center gap-2 overflow-hidden rounded-3xl border-2 border-dashed border-line text-sm text-ink-soft hover:border-rose-500">
             {preview ? (
               <img src={preview} alt="Selected" className="size-full object-cover" />
             ) : (
@@ -213,7 +237,7 @@ export default function DesignEditor() {
               type="file"
               accept="image/jpeg,image/png,image/webp,image/avif,image/heic,image/heif"
               className="sr-only"
-              required={isNew && form.kind !== 'service'}
+              required={isNew}
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
             />
           </label>
@@ -226,22 +250,10 @@ export default function DesignEditor() {
 
         <div className="grid content-start gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2">
-            <Field label="Name">
-              <input className="input" required maxLength={100} value={form.name} onChange={set('name')} />
+            <Field label="Title">
+              <input className="input" required maxLength={100} value={form.title} onChange={set('title')} />
             </Field>
           </div>
-          <Field label="Type" hint="Services (pedicure, foot spa) have no try-on, and a photo is optional.">
-            <select className="input" value={form.kind} onChange={set('kind')} disabled={!isNew}>
-              <option value="design">Nail design</option>
-              <option value="service">Service</option>
-            </select>
-          </Field>
-          <Field label="Price">
-            <input className="input" type="number" min={0} step="any" required value={form.price} onChange={set('price')} />
-          </Field>
-          <Field label="Duration (minutes)">
-            <input className="input" type="number" min={15} max={480} step={15} value={form.durationMinutes} onChange={set('durationMinutes')} />
-          </Field>
           <Field label="Category">
             <input className="input" placeholder="e.g. french, chrome, floral" value={form.category} onChange={set('category')} />
           </Field>
@@ -261,6 +273,24 @@ export default function DesignEditor() {
           </div>
         </div>
       </form>
+      {editingTexture && textureReady && (
+        <ImageCropModal
+          file={design.swatchImage.url}
+          title="Texture editor"
+          description="Zoom in and drag to crop away any leftover skin or background at the edges. The cropped area becomes the pattern used in the virtual try-on."
+          useNaturalAspect
+          aspects={[
+            { label: 'Original', value: design.swatchImage.width && design.swatchImage.height ? design.swatchImage.width / design.swatchImage.height : 2 / 3 },
+            { label: '2:3', value: 2 / 3 },
+            { label: '3:4', value: 3 / 4 },
+            { label: '1:1', value: 1 },
+          ]}
+          output={{ type: 'image/png', ext: 'png' }}
+          applyLabel="Save texture"
+          onCancel={() => setEditingTexture(false)}
+          onApply={(cropped) => saveTexture.mutate(cropped)}
+        />
+      )}
     </div>
   );
 }

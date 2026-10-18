@@ -13,6 +13,8 @@
     "seed:admin": "node src/scripts/seedAdmin.js",
     "seed:artists": "node src/scripts/seedArtists.js",
     "seed:services": "node src/scripts/seedServices.js",
+    "migrate:split-services": "node src/scripts/migrateSplitServices.js",
+    "check:cloudinary": "node src/scripts/checkCloudinary.js",
     "test:isolation": "node src/scripts/testIsolation.js",
     "import:design": "node src/scripts/importDesign.js",
     "replicate:schema": "node src/scripts/replicateSchema.js"
@@ -29,6 +31,7 @@
     "mongoose": "^8.9.5",
     "morgan": "^1.10.0",
     "multer": "^2.0.2",
+    "nodemailer": "^10.1.1",
     "sharp": "^0.35.5",
     "zod": "^3.24.1"
   },

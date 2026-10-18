@@ -1,12 +1,15 @@
 import { NavLink, Outlet, Link } from 'react-router-dom';
-import { CalendarDays, ExternalLink, LayoutDashboard, LogOut, Palette } from 'lucide-react';
+import { BadgePercent, CalendarDays, ExternalLink, LayoutDashboard, LogOut, Megaphone, Palette, Scissors } from 'lucide-react';
 import { useAuth } from '../../lib/auth';
 import { Logo } from '../../components/Layout';
 
 const NAV = [
   { to: '/admin', label: 'Overview', icon: LayoutDashboard, end: true },
   { to: '/admin/appointments', label: 'Appointments', icon: CalendarDays },
-  { to: '/admin/designs', label: 'Designs', icon: Palette },
+  { to: '/admin/services', label: 'Services', icon: Scissors },
+  { to: '/admin/designs', label: 'Nail designs', icon: Palette },
+  { to: '/admin/promotions', label: 'Promotions', icon: BadgePercent },
+  { to: '/admin/broadcast', label: 'Email broadcast', icon: Megaphone },
 ];
 
 const linkClass = ({ isActive }) =>

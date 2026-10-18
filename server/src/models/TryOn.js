@@ -16,7 +16,7 @@ const assetSchema = new mongoose.Schema(
 const tryOnSchema = new mongoose.Schema(
   {
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-    design: { type: mongoose.Schema.Types.ObjectId, ref: 'Design', required: true },
+    design: { type: mongoose.Schema.Types.ObjectId, ref: 'NailDesign', required: true },
     status: { type: String, enum: ['pending', 'processing', 'succeeded', 'failed'], default: 'pending' },
     resultImage: assetSchema,
     error: String,

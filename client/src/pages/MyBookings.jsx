@@ -42,9 +42,9 @@ export default function MyBookings() {
             return (
               <div key={a.id} className="card flex items-center gap-4 p-4">
                 {a.design?.swatchImage ? (
-                  <img src={a.design.swatchImage.url} alt="" className="h-16 w-12 shrink-0 rounded-none object-cover" />
+                  <img src={a.design.swatchImage.url} alt="" className="h-16 w-12 shrink-0 rounded-[40%/30%] object-cover" />
                 ) : (
-                  <div className="h-16 w-12 shrink-0 rounded-none bg-blush-100" />
+                  <div className="h-16 w-12 shrink-0 rounded-[40%/30%] bg-blush-100" />
                 )}
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
@@ -53,7 +53,8 @@ export default function MyBookings() {
                     <StatusBadge status={a.status} />
                   </div>
                   <p className="truncate text-sm text-ink-soft">
-                    {a.design?.name ?? 'Design chosen at the studio'}
+                    {a.service?.title ?? 'Service'}
+                    {a.design && ` · ${a.design.title}`}
                     {a.priceAtBooking != null && ` · ${formatPrice(a.priceAtBooking)}`}
                   </p>
                 </div>

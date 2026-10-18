@@ -1,6 +1,6 @@
 import sharp from 'sharp';
 import { config } from '../config/env.js';
-import { Design } from '../models/Design.js';
+import { NailDesign } from '../models/NailDesign.js';
 import { TryOn } from '../models/TryOn.js';
 import { buildInput, downloadOutput, modelName, outputUrl, runPrediction } from './replicate.js';
 import { compositeNails } from './tryonComposite.js';
@@ -8,7 +8,7 @@ import { deleteImage, readImage, uploadImage } from './storage.js';
 
 /** Describes the design in words, so models that can't see the pattern image still get the idea. */
 function describeDesign(design) {
-  const parts = [`"${design.name}"`];
+  const parts = [`"${design.title}"`];
   if (design.dominantColor) parts.push(`main colour ${design.dominantColor}`);
   if (design.description) parts.push(design.description.slice(0, 200));
   return parts.join(', ');
@@ -78,7 +78,7 @@ export async function processTryOn(tryOnId, raw) {
     tryOn.model = modelName();
     await tryOn.save();
 
-    const design = await Design.findById(tryOn.design);
+    const design = await NailDesign.findById(tryOn.design);
     if (!design) throw new Error('This design is no longer available.');
 
     const { photo, mask } = await prepareInputs(raw.photo, raw.mask);

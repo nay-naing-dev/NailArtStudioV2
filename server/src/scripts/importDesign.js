@@ -1,11 +1,11 @@
 // Imports a local reference photo as a design, the same way an admin upload does: stores the
 // original, runs the isolation pipeline, and saves the isolated asset and swatch to MongoDB.
 //
-//   npm run import:design -- <image> --name "Navy & Gold" --price 30000 [--category art] [--tolerance 2.5]
+//   npm run import:design -- <image> --title "Navy & Gold" [--category art] [--tolerance 2.5]
 import fs from 'node:fs/promises';
 import sharp from 'sharp';
 import { connectDB, disconnectDB } from '../config/db.js';
-import { Design } from '../models/Design.js';
+import { NailDesign } from '../models/NailDesign.js';
 import { User } from '../models/User.js';
 import { processDesign } from '../services/designProcessor.js';
 import { uploadImage } from '../services/storage.js';
@@ -16,8 +16,8 @@ const flag = (name, fallback) => {
   const i = args.indexOf(`--${name}`);
   return i >= 0 ? args[i + 1] : fallback;
 };
-if (!input || !flag('name') || flag('price') == null) {
-  console.error('Usage: npm run import:design -- <image> --name "Design name" --price 30000 [--category art] [--tolerance 2.5]');
+if (!input || !flag('title')) {
+  console.error('Usage: npm run import:design -- <image> --title "Design title" [--category art] [--tolerance 2.5]');
   process.exit(1);
 }
 
@@ -25,9 +25,8 @@ await connectDB();
 try {
   const admin = await User.findOne({ role: 'admin' });
   const jpeg = await sharp(await fs.readFile(input)).rotate().jpeg({ quality: 90 }).toBuffer();
-  const design = await Design.create({
-    name: flag('name'),
-    price: Number(flag('price')),
+  const design = await NailDesign.create({
+    title: flag('title'),
     category: flag('category', 'general'),
     originalImage: await uploadImage(jpeg, { folder: 'designs/originals', format: 'jpg' }),
     processing: { status: 'pending' },
@@ -37,7 +36,7 @@ try {
   const tolerance = flag('tolerance');
   await processDesign(design.id, { buffer: jpeg, skinTolerance: tolerance != null ? Number(tolerance) : undefined });
 
-  const saved = await Design.findById(design.id);
+  const saved = await NailDesign.findById(design.id);
   console.log(`\nDesign ${saved.id}: ${saved.processing.status}`);
   if (saved.processing.status !== 'ready') {
     console.log(`  error: ${saved.processing.error}`);

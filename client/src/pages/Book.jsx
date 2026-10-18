@@ -1,16 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarCheck, Check, Footprints } from "lucide-react";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { CalendarCheck, Check, TicketPercent, X } from "lucide-react";
 import {
   appointmentsApi,
   artistsApi,
   designsApi,
   errorMessage,
+  servicesApi,
 } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { formatDate, formatPrice, formatTime, isoDate } from "../lib/format";
 import { GridBackdrop } from "../components/GridBackdrop";
+import PriceBreakdown from "../components/PriceBreakdown";
 import { Field, Spinner } from "../components/ui";
 import { useI18n } from "../lib/i18n";
 
@@ -20,7 +22,7 @@ function Step({ n, title, children }) {
   return (
     <section className="card min-w-0 p-4 shadow-sm sm:p-5 md:p-6">
       <h2 className="mb-4 flex items-center gap-3 font-sans text-base font-semibold">
-        <span className="flex size-7 items-center justify-center rounded-sm bg-ink text-xs text-white">
+        <span className="flex size-7 items-center justify-center rounded-full bg-ink text-xs text-white">
           {n}
         </span>
         {title}
@@ -30,12 +32,71 @@ function Step({ n, title, children }) {
   );
 }
 
+/** Voucher input. Shows the applied code as a removable chip, or why a code didn't apply. */
+function PromoCodeBox({ applied, promo, loading, onApply, onRemove }) {
+  const { t } = useI18n();
+  const [code, setCode] = useState("");
+  const ok = promo?.status === "applied";
+  const message = promo && !ok && (promo.reason ? t(`book.promoReasons.${promo.reason}`) : promo.message);
+
+  if (applied && ok) {
+    return (
+      <div className="mt-4">
+        <span className="label">{t("book.promoLabel")}</span>
+        <div className="flex items-center justify-between gap-2">
+          <span className="pill pill-active inline-flex items-center gap-1.5 bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-800 ring-1 ring-emerald-200">
+            <TicketPercent className="size-4" aria-hidden /> {applied}
+          </span>
+          <button type="button" className="btn-ghost pill p-1.5" onClick={onRemove} aria-label={t("book.promoRemove")}>
+            <X className="size-4" />
+          </button>
+        </div>
+        <p className="mt-1.5 text-xs text-emerald-700" role="status">{t("book.promoApplied")}</p>
+      </div>
+    );
+  }
+
+  return (
+    <form
+      className="mt-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (code.trim()) onApply(code.trim().toUpperCase());
+      }}
+    >
+      <label htmlFor="promo-code" className="label">{t("book.promoLabel")}</label>
+      <div className="flex gap-2">
+        <input
+          id="promo-code"
+          className="input min-w-0 py-2 uppercase placeholder:normal-case"
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+          placeholder={t("book.promoPlaceholder")}
+          maxLength={30}
+          autoComplete="off"
+          aria-invalid={Boolean(message && promo?.status === "invalid")}
+          aria-describedby={message ? "promo-message" : undefined}
+        />
+        <button className="btn-secondary shrink-0 px-4 py-2" disabled={!code.trim() || loading}>
+          {loading ? <Spinner className="size-4" /> : t("book.promoApply")}
+        </button>
+      </div>
+      {message && (
+        <p id="promo-message" className={`mt-1.5 text-xs ${promo.status === "invalid" ? "text-red-600" : "text-ink-soft"}`} role="status">
+          {message}
+        </p>
+      )}
+    </form>
+  );
+}
+
 export default function Book() {
   const { t } = useI18n();
   const [params] = useSearchParams();
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
+  const [serviceId, setServiceId] = useState(params.get("service") || "");
   const [designId, setDesignId] = useState(params.get("design") || "");
   const [artistId, setArtistId] = useState(params.get("artist") || "");
   const [date, setDate] = useState(isoDate(1));
@@ -47,6 +108,7 @@ export default function Book() {
     notes: "",
   });
   const [booked, setBooked] = useState(null);
+  const [promoCode, setPromoCode] = useState(params.get("promo") || "");
 
   useEffect(() => {
     if (user) {
@@ -59,6 +121,10 @@ export default function Book() {
     }
   }, [user]);
 
+  const services = useQuery({
+    queryKey: ["services", { limit: 100 }],
+    queryFn: () => servicesApi.list({ limit: 100 }),
+  });
   const designs = useQuery({
     queryKey: ["designs", { limit: 100 }],
     queryFn: () => designsApi.list({ limit: 100 }),
@@ -74,15 +140,33 @@ export default function Book() {
     [],
   );
   const selectedArtist = artists.data?.items.find((a) => a.id === artistId);
+  const selectedService = services.data?.items.find((s) => s.id === serviceId);
   const selectedDesign = designs.data?.items.find((d) => d.id === designId);
 
   useEffect(() => setStartTime(""), [date]);
 
+  // Priced by the server: combo discount, live promotions and any promo code.
+  const quote = useQuery({
+    queryKey: ["quote", serviceId, designId, promoCode],
+    queryFn: () =>
+      appointmentsApi.quote({
+        serviceId,
+        designId: designId || undefined,
+        promoCode: promoCode || undefined,
+      }),
+    enabled: Boolean(serviceId),
+    placeholderData: keepPreviousData,
+  });
+  const promo = promoCode ? quote.data?.promo : null;
+
   const book = useMutation({
     mutationFn: () =>
       appointmentsApi.create({
+        serviceId,
         designId: designId || undefined,
         artistId: artistId || undefined,
+        // Only send a code that applied; an invalid one would fail the booking.
+        promoCode: promo?.status === "applied" ? promoCode : undefined,
         date,
         startTime,
         ...contact,
@@ -104,15 +188,19 @@ export default function Book() {
     return (
       <div className="mx-auto max-w-lg px-4 py-16">
         <div className="card p-8 text-center">
-          <div className="mx-auto flex size-14 items-center justify-center rounded-sm bg-emerald-50 text-emerald-600">
+          <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
             <Check className="size-7" />
           </div>
           <h1 className="mt-5 text-3xl font-semibold">{t("book.doneTitle")}</h1>
           <p className="mt-2 text-ink-soft">
             {formatDate(booked.date)} at {formatTime(booked.startTime)}
-            {booked.design && <> · {booked.design.name}</>}
+            {booked.service && <> · {booked.service.title}</>}
+            {booked.design && <> · {booked.design.title}</>}
             {booked.artist && <> · {booked.artist.name}</>}
           </p>
+          {booked.priceAtBooking != null && (
+            <PriceBreakdown price={booked} className="mx-auto mt-6 max-w-xs text-left" />
+          )}
           <p className="mt-4 text-sm text-ink-soft">
             {t("book.donePending")} <strong>{t("book.donePendingWord")}</strong>
             . {t("book.doneConfirmNote")}
@@ -123,8 +211,8 @@ export default function Book() {
                 {t("book.viewBookings")}
               </Link>
             )}
-            <Link to="/designs" className="btn-secondary">
-              {t("book.backToDesigns")}
+            <Link to="/services" className="btn-secondary">
+              {t("book.backToServices")}
             </Link>
           </div>
         </div>
@@ -133,6 +221,7 @@ export default function Book() {
   }
 
   const canSubmit =
+    serviceId &&
     startTime &&
     contact.customerName &&
     contact.customerEmail &&
@@ -169,6 +258,38 @@ export default function Book() {
         <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
           <div className="min-w-0 space-y-6">
             <Step n={1} title={t("book.step1")}>
+              {services.isLoading ? (
+                <Spinner />
+              ) : !services.data?.items.length ? (
+                <p className="text-sm text-ink-soft">{t("book.noServices")}</p>
+              ) : (
+                <div role="radiogroup" aria-label={t("book.step1")} className="grid gap-2">
+                  {services.data.items.map((s) => (
+                    <button
+                      key={s.id}
+                      role="radio"
+                      aria-checked={serviceId === s.id}
+                      onClick={() => setServiceId(s.id)}
+                      className={`flex items-center justify-between gap-4 rounded-2xl border-2 px-4 py-3 text-left transition ${
+                        serviceId === s.id
+                          ? "border-rose-500 bg-blush-100"
+                          : "border-line bg-white hover:border-rose-500/50"
+                      }`}
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-semibold">{s.title}</span>
+                        <span className="block text-xs capitalize text-ink-soft">
+                          {s.category.replace(/-/g, " ")} · {t("book.minutes", { n: s.duration })}
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-sm font-medium text-rose-600">{formatPrice(s.price)}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </Step>
+
+            <Step n={2} title={t("book.stepDesign")}>
               <div className="flex gap-3 overflow-x-auto pb-2">
                 <button
                   onClick={() => setDesignId("")}
@@ -178,7 +299,7 @@ export default function Book() {
                       : "border-line bg-white hover:border-rose-500/50"
                   }`}
                 >
-                  {t("book.decide")}
+                  {t("book.noDesign")}
                 </button>
                 {designs.data?.items.map((d) => (
                   <button
@@ -189,24 +310,18 @@ export default function Book() {
                         ? "border-rose-500"
                         : "border-transparent hover:border-rose-500/50"
                     }`}
-                    title={d.name}
+                    title={d.title}
                   >
-                    {d.originalImage?.url ? (
-                      <img src={d.originalImage.url} alt="" className="h-20 w-full object-cover" />
-                    ) : (
-                      <span className="flex h-20 w-full items-center justify-center bg-blush-100 text-rose-500">
-                        <Footprints className="size-7" strokeWidth={1.5} />
-                      </span>
-                    )}
+                    <img src={d.imageUrl} alt="" className="h-20 w-full object-cover" />
                     <span className="block truncate bg-white px-1.5 py-1 text-xs">
-                      {d.name}
+                      {d.title}
                     </span>
                   </button>
                 ))}
               </div>
             </Step>
 
-            <Step n={2} title={t("book.stepArtist")}>
+            <Step n={3} title={t("book.stepArtist")}>
               <div className="flex gap-3 overflow-x-auto pb-2">
                 <button
                   onClick={() => setArtistId("")}
@@ -233,10 +348,10 @@ export default function Book() {
                       <img
                         src={a.image}
                         alt=""
-                        className="size-12 rounded-sm object-cover"
+                        className="size-12 rounded-full object-cover"
                       />
                     ) : (
-                      <span className="flex size-12 items-center justify-center rounded-sm bg-blush-200 font-display text-lg text-rose-600">
+                      <span className="flex size-12 items-center justify-center rounded-full bg-blush-200 font-display text-lg text-rose-600">
                         {a.name.charAt(0)}
                       </span>
                     )}
@@ -246,7 +361,7 @@ export default function Book() {
               </div>
             </Step>
 
-            <Step n={3} title={t("book.step2")}>
+            <Step n={4} title={t("book.step2")}>
               <div className="flex gap-2 overflow-x-auto pb-2">
                 {days.map((d) => (
                   <button
@@ -308,7 +423,7 @@ export default function Book() {
               </div>
             </Step>
 
-            <Step n={4} title={t("book.step3")}>
+            <Step n={5} title={t("book.step3")}>
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label={t("book.name")}>
                   <input
@@ -356,9 +471,13 @@ export default function Book() {
               </h2>
               <dl className="mt-4 space-y-3 text-sm">
                 <div className="flex justify-between gap-4">
+                  <dt className="text-ink-soft">{t("book.service")}</dt>
+                  <dd className="text-right">{selectedService?.title ?? "—"}</dd>
+                </div>
+                <div className="flex justify-between gap-4">
                   <dt className="text-ink-soft">{t("book.design")}</dt>
                   <dd className="text-right">
-                    {selectedDesign?.name ?? t("book.decide")}
+                    {selectedDesign?.title ?? t("book.noDesign")}
                   </dd>
                 </div>
                 <div className="flex justify-between gap-4">
@@ -375,15 +494,29 @@ export default function Book() {
                   <dt className="text-ink-soft">{t("book.time")}</dt>
                   <dd>{startTime ? formatTime(startTime) : "—"}</dd>
                 </div>
-                {selectedDesign && (
-                  <div className="flex justify-between gap-4 border-t border-line pt-3">
-                    <dt className="text-ink-soft">{t("book.price")}</dt>
-                    <dd className="font-medium">
-                      {formatPrice(selectedDesign.price)}
-                    </dd>
-                  </div>
-                )}
               </dl>
+              {selectedService && (
+                <>
+                  <div className={`mt-3 border-t border-line pt-3 transition-opacity ${quote.isFetching ? "opacity-60" : ""}`}>
+                    {quote.data ? (
+                      <PriceBreakdown price={quote.data} />
+                    ) : (
+                      <div className="flex justify-between gap-4 text-sm">
+                        <span className="text-ink-soft">{t("book.price")}</span>
+                        <span className="font-medium">{formatPrice(selectedService.price)}</span>
+                      </div>
+                    )}
+                  </div>
+                  <PromoCodeBox
+                    key={promo?.status === "applied" ? "applied" : "entry"}
+                    applied={promoCode}
+                    promo={promo}
+                    loading={Boolean(promoCode) && quote.isFetching}
+                    onApply={setPromoCode}
+                    onRemove={() => setPromoCode("")}
+                  />
+                </>
+              )}
               {book.isError && (
                 <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">
                   {errorMessage(book.error)}

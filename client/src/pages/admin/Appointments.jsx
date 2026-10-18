@@ -77,11 +77,12 @@ export default function Appointments() {
         ) : data.items.length === 0 ? (
           <p className="p-6 text-sm text-ink-soft">No appointments match these filters.</p>
         ) : (
-          <table className={`w-full min-w-[760px] text-left text-sm ${isFetching ? 'opacity-60' : ''}`}>
+          <table className={`w-full min-w-[860px] text-left text-sm ${isFetching ? 'opacity-60' : ''}`}>
             <thead className="border-b border-line text-xs tracking-wide text-ink-soft uppercase">
               <tr>
                 <th className="px-4 py-3 font-medium">When</th>
                 <th className="px-4 py-3 font-medium">Customer</th>
+                <th className="px-4 py-3 font-medium">Service</th>
                 <th className="px-4 py-3 font-medium">Design</th>
                 <th className="px-4 py-3 font-medium">Status</th>
                 <th className="px-4 py-3 font-medium">Change</th>
@@ -103,15 +104,25 @@ export default function Appointments() {
                     {a.notes && <p className="mt-1 max-w-56 text-xs text-ink-soft italic">“{a.notes}”</p>}
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      {a.design?.swatchImage && (
-                        <img src={a.design.swatchImage.url} alt="" className="h-10 w-7 rounded-none object-cover" />
-                      )}
-                      <div>
-                        <p>{a.design?.name ?? '—'}</p>
-                        {a.priceAtBooking != null && <p className="text-ink-soft">{formatPrice(a.priceAtBooking)}</p>}
+                    <p>{a.service?.title ?? '—'}</p>
+                    {a.priceAtBooking != null && <p className="text-ink-soft">{formatPrice(a.priceAtBooking)}</p>}
+                    {a.discounts?.map((d) => (
+                      <p key={`${d.kind}-${d.title}`} className="text-xs text-emerald-700">
+                        −{formatPrice(d.amount)} {d.kind === 'combo' ? 'combo' : d.code || d.title}
+                      </p>
+                    ))}
+                  </td>
+                  <td className="px-4 py-3">
+                    {a.design ? (
+                      <div className="flex items-center gap-2">
+                        {a.design.swatchImage && (
+                          <img src={a.design.swatchImage.url} alt="" className="h-10 w-7 rounded-[40%/30%] object-cover" />
+                        )}
+                        <p>{a.design.title}</p>
                       </div>
-                    </div>
+                    ) : (
+                      <span className="text-ink-soft">—</span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <StatusBadge status={a.status} />

@@ -29,7 +29,9 @@ export function errorHandler(err, req, res, next) {
     status = 409;
     message = err.keyPattern?.startTime
       ? 'That time slot has just been booked. Please choose another.'
-      : `Duplicate value for ${Object.keys(err.keyPattern || {}).join(', ')}`;
+      : err.keyPattern?.code
+        ? 'That promo code is already used by another promotion.'
+        : `Duplicate value for ${Object.keys(err.keyPattern || {}).join(', ')}`;
   } else if (err instanceof multer.MulterError) {
     status = 400;
     message = err.code === 'LIMIT_FILE_SIZE' ? 'Image is too large' : err.message;

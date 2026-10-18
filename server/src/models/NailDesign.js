@@ -11,26 +11,24 @@ const assetSchema = new mongoose.Schema(
   { _id: false },
 );
 
-// 'design' = nail art (photo is processed for virtual try-on); 'service' = treatments such as pedicure or foot spa.
-export const DESIGN_KINDS = ['design', 'service'];
-
 export const PROCESSING_STATUSES = ['pending', 'processing', 'ready', 'failed'];
 
-const designSchema = new mongoose.Schema(
+// Visual nail art for the gallery and virtual try-on. Treatments and pricing live in Service.
+const nailDesignSchema = new mongoose.Schema(
   {
-    name: { type: String, required: true, trim: true, maxlength: 100 },
+    title: { type: String, required: true, trim: true, maxlength: 100 },
     description: { type: String, trim: true, maxlength: 1000 },
-    kind: { type: String, enum: DESIGN_KINDS, default: 'design' },
     category: { type: String, trim: true, lowercase: true, default: 'general' },
     tags: [{ type: String, trim: true, lowercase: true }],
-    price: { type: Number, required: true, min: 0 },
-    durationMinutes: { type: Number, default: 60, min: 15 },
 
-    // Reference photo exactly as the admin uploaded it (may show a hand, background, props).
+    // Set when an admin hand-edited the try-on texture; a re-extract replaces the texture and clears it.
+    textureEditedAt: Date,
+
+    // Reference photo exactly as the admin uploaded it (may show a hand, background, props). Exposed as `imageUrl`.
     originalImage: assetSchema,
     // Transparent PNG of the nail regions only: background and skin removed.
     isolatedImage: assetSchema,
-    // Upright, fully opaque texture of a single nail, used to warp onto nails in try-on.
+    // Upright, fully opaque texture of a single nail, used to warp onto nails in try-on. Exposed as `textureUrl`.
     swatchImage: assetSchema,
     dominantColor: { type: String, match: /^#[0-9a-f]{6}$/i },
 
@@ -50,17 +48,20 @@ const designSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-designSchema.index({ kind: 1, isActive: 1 });
-designSchema.index({ isActive: 1, 'processing.status': 1, createdAt: -1 });
-designSchema.index({ name: 'text', description: 'text', tags: 'text' });
+nailDesignSchema.index({ isActive: 1, 'processing.status': 1, createdAt: -1 });
+nailDesignSchema.index({ title: 'text', description: 'text', tags: 'text' });
 
-designSchema.set('toJSON', {
+// The asset sub-documents keep the storage ids needed to delete files; clients get the plain URLs.
+nailDesignSchema.set('toJSON', {
   versionKey: false,
   transform: (doc, ret) => {
     ret.id = ret._id;
     delete ret._id;
+    ret.imageUrl = ret.originalImage?.url;
+    ret.textureUrl = ret.swatchImage?.url;
     return ret;
   },
 });
 
-export const Design = mongoose.model('Design', designSchema);
+// Reuses the original `designs` collection, so existing nail art is kept.
+export const NailDesign = mongoose.model('NailDesign', nailDesignSchema, 'designs');

@@ -31,6 +31,13 @@ router.patch(
   validate({ params: idParams, body: updateDesignBody }),
   asyncHandler(ctrl.updateDesign),
 );
+router.put(
+  '/:id/texture',
+  requireAdmin,
+  imageUpload.single('image'),
+  validate({ params: idParams }),
+  asyncHandler(ctrl.updateTexture),
+);
 router.post(
   '/:id/reprocess',
   requireAdmin,

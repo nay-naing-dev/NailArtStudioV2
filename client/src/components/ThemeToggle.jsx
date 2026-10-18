@@ -12,7 +12,7 @@ export default function ThemeToggle() {
   const { t } = useI18n();
 
   return (
-    <div role="radiogroup" aria-label={t('theme.label')} className="inline-flex items-center rounded-sm border border-line bg-white p-0.5">
+    <div role="radiogroup" aria-label={t('theme.label')} className="inline-flex items-center rounded-full border border-line bg-white p-0.5">
       {OPTIONS.map(({ id, icon: Icon }) => (
         <button
           key={id}
@@ -21,7 +21,7 @@ export default function ThemeToggle() {
           aria-label={t(`theme.${id}`)}
           title={t(`theme.${id}`)}
           onClick={() => setTheme(id)}
-          className={`flex size-7 items-center justify-center rounded-sm transition ${theme === id ? 'bg-ink text-white' : 'text-ink-soft hover:text-ink'}`}
+          className={`flex size-7 items-center justify-center rounded-full transition ${theme === id ? 'bg-ink text-white' : 'text-ink-soft hover:text-ink'}`}
         >
           <Icon className="size-3.5" />
         </button>

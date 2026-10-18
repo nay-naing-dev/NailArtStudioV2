@@ -1,4 +1,5 @@
 import { tryonApi } from '../lib/api';
+import { DEFAULT_SHAPE, shapeOutline } from './nailShapeProfile';
 
 /**
  * Black and white nail mask (white = nail), the same size as `photo`.
@@ -16,19 +17,9 @@ export function buildMaskCanvas(photo, nails) {
     ctx.save();
     ctx.translate(n.cx, n.cy);
     ctx.rotate(n.angle);
-    // Superellipse, matching renderNails.js: squarer toward the tip, rounder at the cuticle
+    // The chosen nail shape, exactly as drawn by the instant preview (renderNails.js)
     ctx.beginPath();
-    const steps = 48;
-    for (let i = 0; i <= steps; i++) {
-      const a = (i / steps) * Math.PI * 2;
-      const c = Math.cos(a);
-      const s = Math.sin(a);
-      const p = s < 0 ? 2.8 : 2.2;
-      const x = Math.sign(c) * Math.abs(c) ** (2 / p) * (n.width / 2);
-      const y = Math.sign(s) * Math.abs(s) ** (2 / p) * (n.length / 2);
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
+    shapeOutline(n.shape ?? DEFAULT_SHAPE, n.width, n.length).forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
     ctx.closePath();
     ctx.fill();
     ctx.restore();

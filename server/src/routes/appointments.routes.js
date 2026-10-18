@@ -9,14 +9,18 @@ import {
   createAppointmentBody,
   idParams,
   listAppointmentsQuery,
+  quoteBody,
   updateStatusBody,
 } from '../validators/schemas.js';
 
 const router = Router();
+// Quotes are cheap but check promo codes, so cap them to slow down code guessing.
+const quoteLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 60, standardHeaders: 'draft-7', legacyHeaders: false });
 const bookingLimiter = rateLimit({ windowMs: 60 * 60 * 1000, limit: 30, standardHeaders: 'draft-7', legacyHeaders: false });
 
 // Public / customer
 router.get('/availability', validate({ query: availabilityQuery }), asyncHandler(ctrl.availability));
+router.post('/quote', quoteLimiter, validate({ body: quoteBody }), asyncHandler(ctrl.quote));
 router.post(
   '/',
   bookingLimiter,

@@ -27,7 +27,7 @@ createRoot(document.getElementById('root')).render(
         <I18nProvider>
           <AuthProvider>
             <App />
-            <Toaster position="top-center" toastOptions={{ style: { borderRadius: '2px', fontSize: '14px', background: 'var(--color-white)', color: 'var(--color-ink)' } }} />
+            <Toaster position="top-center" toastOptions={{ style: { borderRadius: '999px', fontSize: '14px', background: 'var(--color-white)', color: 'var(--color-ink)' } }} />
           </AuthProvider>
         </I18nProvider>
         </ThemeProvider>

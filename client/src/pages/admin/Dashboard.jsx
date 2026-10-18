@@ -71,7 +71,7 @@ export default function Dashboard() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{a.customerName}</p>
                   <p className="truncate text-sm text-ink-soft">
-                    {a.design?.name ?? 'No design selected'} · {a.customerPhone}
+                    {a.service?.title ?? 'No service'}{a.design ? ` + ${a.design.title}` : ''} · {a.customerPhone}
                   </p>
                 </div>
                 <StatusBadge status={a.status} />

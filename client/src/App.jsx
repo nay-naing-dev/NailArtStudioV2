@@ -4,6 +4,7 @@ import Layout from './components/Layout';
 import RequireAuth from './components/RequireAuth';
 import { PageLoader } from './components/ui';
 import Home from './pages/Home';
+import Services from './pages/Services';
 import Gallery from './pages/Gallery';
 import DesignDetail from './pages/DesignDetail';
 import Artists from './pages/Artists';
@@ -18,7 +19,11 @@ const TryOn = lazy(() => import('./pages/TryOn'));
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'));
 const Dashboard = lazy(() => import('./pages/admin/Dashboard'));
 const AdminAppointments = lazy(() => import('./pages/admin/Appointments'));
+const AdminServices = lazy(() => import('./pages/admin/Services'));
+const ServiceEditor = lazy(() => import('./pages/admin/ServiceEditor'));
 const AdminDesigns = lazy(() => import('./pages/admin/Designs'));
+const AdminPromotions = lazy(() => import('./pages/admin/Promotions'));
+const AdminBroadcast = lazy(() => import('./pages/admin/Broadcast'));
 const DesignEditor = lazy(() => import('./pages/admin/DesignEditor'));
 
 export default function App() {
@@ -27,6 +32,7 @@ export default function App() {
       <Routes>
         <Route element={<Layout />}>
           <Route index element={<Home />} />
+          <Route path="services" element={<Services />} />
           <Route path="designs" element={<Gallery />} />
           <Route path="designs/:id" element={<DesignDetail />} />
           <Route path="artists" element={<Artists />} />
@@ -55,7 +61,12 @@ export default function App() {
         >
           <Route index element={<Dashboard />} />
           <Route path="appointments" element={<AdminAppointments />} />
+          <Route path="services" element={<AdminServices />} />
+          <Route path="services/new" element={<ServiceEditor />} />
+          <Route path="services/:id" element={<ServiceEditor />} />
           <Route path="designs" element={<AdminDesigns />} />
+          <Route path="promotions" element={<AdminPromotions />} />
+          <Route path="broadcast" element={<AdminBroadcast />} />
           <Route path="designs/new" element={<DesignEditor />} />
           <Route path="designs/:id" element={<DesignEditor />} />
         </Route>

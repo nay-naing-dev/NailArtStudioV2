@@ -1,11 +1,19 @@
 import { Appointment } from '../models/Appointment.js';
 import { Artist } from '../models/Artist.js';
-import { Design } from '../models/Design.js';
+import { NailDesign } from '../models/NailDesign.js';
+import { Service } from '../models/Service.js';
+import { quoteBooking } from '../services/pricing.js';
 import { getAvailability, checkBookableSlot, studioNow } from '../services/slots.js';
 import { ApiError } from '../utils/ApiError.js';
 
-const DESIGN_FIELDS = 'name price dominantColor swatchImage isolatedImage';
+const SERVICE_FIELDS = 'title category price duration';
+const DESIGN_FIELDS = 'title dominantColor originalImage swatchImage isolatedImage';
 const ARTIST_FIELDS = 'name role image';
+const POPULATE = [
+  { path: 'service', select: SERVICE_FIELDS },
+  { path: 'design', select: DESIGN_FIELDS },
+  { path: 'artist', select: ARTIST_FIELDS },
+];
 const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 // Allowed admin status changes.
@@ -21,8 +29,28 @@ export async function availability(req, res) {
   res.json(await getAvailability(req.query.date));
 }
 
+/** Loads the bookable service and optional design, or throws a 400. */
+async function loadSelection(serviceId, designId) {
+  const service = await Service.findOne({ _id: serviceId, isActive: true });
+  if (!service) throw ApiError.badRequest('Selected service is not available');
+
+  let design;
+  if (designId) {
+    design = await NailDesign.findOne({ _id: designId, isActive: true, 'processing.status': 'ready' });
+    if (!design) throw ApiError.badRequest('Selected design is not available');
+  }
+  return { service, design };
+}
+
+/** Price breakdown for the booking summary (POST /appointments/quote). Doesn't reserve anything. */
+export async function quote(req, res) {
+  const { serviceId, designId, promoCode } = req.body;
+  const { service, design } = await loadSelection(serviceId, designId);
+  res.json(await quoteBooking({ service, design, promoCode }));
+}
+
 export async function createAppointment(req, res) {
-  const { designId, artistId, date, startTime, notes } = req.body;
+  const { serviceId, designId, artistId, date, startTime, notes, promoCode } = req.body;
   const customerName = req.body.customerName ?? req.user?.name;
   const customerEmail = req.body.customerEmail ?? req.user?.email;
   const customerPhone = req.body.customerPhone ?? req.user?.phone;
@@ -33,11 +61,10 @@ export async function createAppointment(req, res) {
   const { slot, error } = checkBookableSlot(date, startTime);
   if (error) throw ApiError.badRequest(error);
 
-  let design;
-  if (designId) {
-    design = await Design.findOne({ _id: designId, isActive: true });
-    if (!design) throw ApiError.badRequest('Selected design is not available');
-  }
+  const { service, design } = await loadSelection(serviceId, designId);
+  // Priced on the server at booking time, so the client can't choose its own discount.
+  const price = await quoteBooking({ service, design, promoCode });
+  if (price.promo?.status === 'invalid') throw ApiError.badRequest(price.promo.message);
 
   let artist;
   if (artistId) {
@@ -47,6 +74,7 @@ export async function createAppointment(req, res) {
 
   // The unique partial index rejects a double booking with error 11000; errorHandler turns that into 409.
   const appointment = await Appointment.create({
+    service: service._id,
     design: design?._id,
     artist: artist?._id,
     customer: req.user?._id,
@@ -56,22 +84,20 @@ export async function createAppointment(req, res) {
     date,
     startTime: slot.startTime,
     endTime: slot.endTime,
-    priceAtBooking: design?.price,
+    subtotalAtBooking: price.subtotal,
+    priceAtBooking: price.total,
+    discounts: price.discounts,
     notes,
     statusHistory: [{ status: 'pending', by: req.user?._id }],
   });
-  await appointment.populate([
-    { path: 'design', select: DESIGN_FIELDS },
-    { path: 'artist', select: ARTIST_FIELDS },
-  ]);
+  await appointment.populate(POPULATE);
   res.status(201).json({ appointment });
 }
 
 export async function myAppointments(req, res) {
   const items = await Appointment.find({ customer: req.user._id })
     .sort({ date: -1, startTime: -1 })
-    .populate('design', DESIGN_FIELDS)
-    .populate('artist', ARTIST_FIELDS);
+    .populate(POPULATE);
   res.json({ items });
 }
 
@@ -108,8 +134,7 @@ export async function listAppointments(req, res) {
       .sort({ date: 1, startTime: 1 })
       .skip((page - 1) * limit)
       .limit(limit)
-      .populate('design', DESIGN_FIELDS)
-    .populate('artist', ARTIST_FIELDS)
+      .populate(POPULATE)
       .populate('customer', 'name email'),
     Appointment.countDocuments(filter),
   ]);
@@ -150,9 +175,6 @@ export async function updateAppointmentStatus(req, res) {
   if (adminNotes !== undefined) appt.adminNotes = adminNotes;
   // Reactivating a cancelled booking whose slot has since been taken fails here with 409.
   await appt.save();
-  await appt.populate([
-    { path: 'design', select: DESIGN_FIELDS },
-    { path: 'artist', select: ARTIST_FIELDS },
-  ]);
+  await appt.populate(POPULATE);
   res.json({ appointment: appt });
 }
