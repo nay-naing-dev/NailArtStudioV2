@@ -74,14 +74,65 @@ function boxBlur(src, w, h, r) {
 
 
 
+const PATTERN_SPAN = 1.3; // one pattern crop spans this many typical nail widths
+const tiles = new WeakMap();
+
+/**
+ * The image mirrored into a 2×2 tile (as is, flipped across, flipped down, both). Repeating it has no seams,
+ * because every tile edge meets its own mirror image.
+ */
+export function mirrorTile(img) {
+  if (tiles.has(img)) return tiles.get(img);
+  const w = img.naturalWidth || img.width;
+  const h = img.naturalHeight || img.height;
+  const tile = makeCanvas(w * 2, h * 2);
+  const t = tile.getContext('2d');
+  for (const [fx, fy] of [[1, 1], [-1, 1], [1, -1], [-1, -1]]) {
+    t.setTransform(fx, 0, 0, fy, fx < 0 ? w * 2 : 0, fy < 0 ? h * 2 : 0);
+    t.drawImage(img, 0, 0, w, h);
+  }
+  tiles.set(img, tile);
+  return tile;
+}
+
+/** Fills the nail's local tile with a texture: cover-fitted for nail art, or repeated at a fixed scale for patterns. */
+function paintTexture(tctx, texture, nail, { W, L, pad, cw, ch, pattern }) {
+  if (pattern) {
+    const tile = mirrorTile(texture);
+    const k = (pattern.nailWidth * PATTERN_SPAN) / (texture.naturalWidth || texture.width);
+    // Offset by the nail's position so each nail shows a different part of the pattern, like cut-out press-ons.
+    const ox = (nail.cx % (tile.width * k)) - cw / 2;
+    const oy = (nail.cy % (tile.height * k)) - ch / 2;
+    tctx.save();
+    tctx.translate(-ox, -oy);
+    tctx.scale(k, k);
+    tctx.fillStyle = tctx.createPattern(tile, 'repeat');
+    tctx.fillRect((ox - cw) / k, (oy - ch) / k, (cw * 3) / k, (ch * 3) / k);
+    tctx.restore();
+    return;
+  }
+  const sAspect = texture.naturalWidth / texture.naturalHeight;
+  const nAspect = W / L;
+  let sx = 0, sy = 0, sw = texture.naturalWidth, sh = texture.naturalHeight;
+  if (sAspect > nAspect) {
+    sw = sh * nAspect;
+    sx = (texture.naturalWidth - sw) / 2;
+  } else {
+    sh = sw / nAspect;
+    sy = (texture.naturalHeight - sh) / 2;
+  }
+  tctx.drawImage(texture, sx, sy, sw, sh, pad, pad, W, L);
+}
+
 /**
  * @param {CanvasRenderingContext2D} ctx  output context, already holding the photo
  * @param {HTMLCanvasElement} photo       the unmodified photo (lighting source)
  * @param {object} nail                   { cx, cy, width, length, angle, shape }
- * @param {HTMLImageElement} swatch       design texture
+ * @param {HTMLImageElement} swatch       texture for this nail
  * @param {object} s                      { opacity, gloss, shading }
+ * @param {{ nailWidth: number } | null} [pattern]  tile the texture at a scale set by a typical nail width
  */
-export function renderNail(ctx, photo, nail, swatch, s) {
+export function renderNail(ctx, photo, nail, swatch, s, pattern = null) {
   const shape = nail.shape ?? DEFAULT_SHAPE;
   const nailDistance = (nx, ny) => shapeDistance(shape, nx, ny);
   const W = Math.max(4, Math.round(nail.width));
@@ -99,20 +150,10 @@ export function renderNail(ctx, photo, nail, swatch, s) {
   pctx.drawImage(photo, 0, 0);
   const P = pctx.getImageData(0, 0, cw, ch).data;
 
-  // 2. Swatch, cover-fitted to W × L
+  // 2. Texture in the nail rectangle
   const tile = makeCanvas(cw, ch);
   const tctx = tile.getContext('2d', { willReadFrequently: true });
-  const sAspect = swatch.naturalWidth / swatch.naturalHeight;
-  const nAspect = W / L;
-  let sx = 0, sy = 0, sw = swatch.naturalWidth, sh = swatch.naturalHeight;
-  if (sAspect > nAspect) {
-    sw = sh * nAspect;
-    sx = (swatch.naturalWidth - sw) / 2;
-  } else {
-    sh = sw / nAspect;
-    sy = (swatch.naturalHeight - sh) / 2;
-  }
-  tctx.drawImage(swatch, sx, sy, sw, sh, pad, pad, W, L);
+  paintTexture(tctx, swatch, nail, { W, L, pad, cw, ch, pattern });
   const out = tctx.getImageData(0, 0, cw, ch);
   const S = out.data;
 
@@ -220,10 +261,25 @@ export function renderNail(ctx, photo, nail, swatch, s) {
   ctx.restore();
 }
 
-/** Draws the photo, then every enabled nail. */
-export function renderScene(ctx, photo, nails, swatch, settings, { selectedId, showGuides } = {}) {
+/**
+ * Texture for one nail: a full set's art for that finger, falling back to the design's main texture.
+ * @param {{ base: HTMLImageElement|null, fingers?: Record<string, HTMLImageElement> }} textures
+ */
+export const textureFor = (textures, finger) => textures?.fingers?.[finger] ?? textures?.base ?? null;
+
+/**
+ * Draws the photo, then every enabled nail.
+ * @param {{ base, fingers?, pattern?: boolean } | null} textures  see textureFor; pattern tiles the base texture
+ */
+export function renderScene(ctx, photo, nails, textures, settings, { selectedId, showGuides } = {}) {
   ctx.drawImage(photo, 0, 0);
-  if (swatch) for (const nail of nails) renderNail(ctx, photo, nail, swatch, settings);
+  // Patterns keep one scale across the hand, so a pinky shows less of the pattern rather than a shrunken copy.
+  const widths = nails.map((n) => n.width).sort((a, b) => a - b);
+  const pattern = textures?.pattern && widths.length ? { nailWidth: widths[Math.floor(widths.length / 2)] } : null;
+  for (const nail of nails) {
+    const texture = textureFor(textures, nail.finger);
+    if (texture) renderNail(ctx, photo, nail, texture, settings, pattern);
+  }
 
   if (showGuides || selectedId) {
     for (const nail of nails) {

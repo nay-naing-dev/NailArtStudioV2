@@ -9,6 +9,7 @@ import {
   idParams,
   listDesignsQuery,
   reprocessBody,
+  segmentDesignBody,
   updateDesignBody,
 } from '../validators/schemas.js';
 
@@ -37,6 +38,12 @@ router.put(
   imageUpload.single('image'),
   validate({ params: idParams }),
   asyncHandler(ctrl.updateTexture),
+);
+router.put(
+  '/:id/segments',
+  requireAdmin,
+  validate({ params: idParams, body: segmentDesignBody }),
+  asyncHandler(ctrl.resegmentDesign),
 );
 router.post(
   '/:id/reprocess',

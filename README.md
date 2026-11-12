@@ -44,11 +44,19 @@ The sample photo `server/test-assets/test-nail.jpg` is by [Ari Kurniawan on Unsp
 
 If extraction misses or removes too much, adjust **Skin removal** on the design page and click **Re-extract**. Set it to 0 for nude polish that is close to skin colour.
 
+**Hand segmenting** (`client/src/components/DesignSegmenter.jsx`, `server/src/services/designSegmenter.js`). For photos auto-extraction can't handle, the admin picks a processing mode on upload, or clicks **Edit segments** on an existing design, and draws boxes on the photo:
+
+- **Full set**: a box around each nail of a press-on set, each assigned to a finger (thumb to pinky). Extra boxes marked **Variation** become their own standalone designs, linked back to the set. Fingers without a box use the middle nail.
+- **Single nail**: one close-up, locked to the standard 2:3 nail shape.
+- **Pattern**: a flat swatch. The try-on mirrors it into a seamless tile and spreads it across every nail at the same scale.
+
+Each box has a tip direction (the arrow), so nails photographed sideways or upside down are turned upright. The server crops the boxes from the full-resolution original, stores them with the other assets (Cloudinary or `uploads/`), and keeps the boxes so they can be edited later (`PUT /api/designs/:id/segments`). Designs expose `designType` (`single`, `set` or `pattern`) and, for sets, `fingerTextures: { thumb, index, middle, ring, pinky }`, alongside the fallback `textureUrl`.
+
 **Virtual try-on** (`client/src/tryon/`). This runs entirely in the browser, and customer photos are never uploaded:
 
 1. MediaPipe HandLandmarker finds 21 landmarks per hand
 2. nail position and size are estimated from each finger's last segment, then snapped to the fingertip outline in the photo
-3. the design texture is drawn into each nail with lighting matched to the photo: exposure, broad shading, fine texture, white balance, nail curvature, gloss highlights and a cuticle shadow
+3. the design texture is drawn into each nail with lighting matched to the photo: exposure, broad shading, fine texture, white balance, nail curvature, gloss highlights and a cuticle shadow. A full set gives each finger its own texture, and a pattern is tiled rather than stretched
 
 Customers can drag and resize individual nails, hide nails, compare before and after, and save the result.
 

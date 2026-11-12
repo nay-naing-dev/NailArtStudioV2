@@ -132,9 +132,10 @@ html[data-theme='dark'] {
   .btn-ghost {
     @apply btn text-ink-soft hover:bg-blush-100 hover:text-ink;
   }
-  /* Soft frosted card: translucent so the grid backdrop shows through, with a gentle shadow. */
+  /* Soft card: slightly translucent so the grid backdrop shows through, with a gentle shadow.
+     No backdrop-blur: it's re-rendered on every scroll frame and made long card grids janky. */
   .card {
-    @apply rounded-3xl border border-line/80 bg-white/80 shadow-lg shadow-rose-500/5 backdrop-blur-md;
+    @apply rounded-3xl border border-line/80 bg-white/90 shadow-lg shadow-rose-500/5;
   }
   .input {
     @apply w-full rounded-2xl border border-line bg-white/70 px-4 py-3 text-sm placeholder:text-ink-soft/60 focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-500/20;

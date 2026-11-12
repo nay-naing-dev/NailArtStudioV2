@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Palette } from 'lucide-react';
+import { sized } from '../lib/images';
 
 export default function DesignCard({ design }) {
   return (
@@ -10,7 +11,7 @@ export default function DesignCard({ design }) {
       <div className="relative aspect-square overflow-hidden bg-blush-100">
         {design.imageUrl ? (
           <img
-            src={design.imageUrl}
+            src={sized(design.imageUrl, 640)}
             alt={design.title}
             loading="lazy"
             className="h-full w-full object-cover transition duration-500 group-hover:scale-105"

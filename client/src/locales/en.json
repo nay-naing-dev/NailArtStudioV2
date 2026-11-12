@@ -177,7 +177,11 @@
       "ring": "Ring",
       "pinky": "Pinky"
     },
-    "shape": "Nail shape"
+    "shape": "Nail shape",
+    "fullSet": "Full set",
+    "fullSetHint": "Each finger gets its own nail art.",
+    "pattern": "Pattern",
+    "patternHint": "Tiled across every nail at the same scale."
   },
   "artists": {
     "title": "Meet Our Artists",

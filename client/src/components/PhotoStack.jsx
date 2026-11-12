@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
+import { sized } from '../lib/images';
 
 /** Hero collage: three photos cascading over each other, tilted at different angles. */
 const HERO_SLOTS = [
@@ -27,7 +28,7 @@ export function HeroStack({ items }) {
             className={`absolute overflow-hidden rounded-2xl bg-blush-100 shadow-2xl shadow-black/25 ${slot.className}`}
           >
             <div className="aspect-[4/5]">
-              {item && <img src={item.imageUrl} alt={item.title} className="h-full w-full object-cover" />}
+              {item && <img src={sized(item.imageUrl, 600)} alt={item.title} className="h-full w-full object-cover" />}
             </div>
           </motion.div>
         );
@@ -62,7 +63,7 @@ export function DesignFan({ items }) {
               to={`/designs/${d.id}`}
               className="relative block aspect-[4/5] overflow-hidden rounded-2xl bg-blush-100 shadow-xl shadow-black/20 transition-shadow hover:shadow-2xl"
             >
-              <img src={d.imageUrl} alt={d.title} loading="lazy" className="h-full w-full object-cover" />
+              <img src={sized(d.imageUrl, 600)} alt={d.title} loading="lazy" className="h-full w-full object-cover" />
               <div className="absolute inset-x-0 bottom-0 flex items-baseline justify-between gap-2 bg-gradient-to-t from-black/65 to-transparent px-3 pt-8 pb-3 text-[#fff]">
                 <span className="truncate text-sm font-semibold">{d.title}</span>
               </div>

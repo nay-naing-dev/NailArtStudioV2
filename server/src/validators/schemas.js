@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { APPOINTMENT_STATUSES } from '../models/Appointment.js';
 import { DISCOUNT_TYPES } from '../models/Promotion.js';
+import { FINGERS } from '../models/NailDesign.js';
 
 export const objectId = z.string().regex(/^[a-f0-9]{24}$/i, 'Invalid id');
 export const idParams = z.object({ id: objectId });
@@ -34,15 +35,66 @@ const tags = z
 const boolish = z.union([z.boolean(), z.enum(['true', 'false']).transform((v) => v === 'true')]);
 const skinTolerance = z.coerce.number().min(0).max(5);
 
-export const createDesignBody = z.object({
+// How the uploaded photo becomes try-on textures: auto-extracted, or segmented by hand in the admin's segmenter.
+export const SEGMENT_MODES = ['auto', 'single', 'set', 'pattern'];
+const unit = z.coerce.number().min(0).max(1);
+const segment = z.object({
+  // Finger roles map onto the set; 'variation' boxes become standalone designs; 'texture' is the one box of single/pattern.
+  role: z.enum([...FINGERS, 'variation', 'texture']),
+  box: z
+    .object({ x: unit, y: unit, width: unit.refine((v) => v > 0), height: unit.refine((v) => v > 0) })
+    .refine((b) => b.x + b.width <= 1.001 && b.y + b.height <= 1.001, 'Box must lie inside the photo'),
+  turn: z.coerce.number().refine((v) => [0, 90, 180, 270].includes(v), 'Turn must be 0, 90, 180 or 270').default(0),
+  label: z.string().trim().max(60).optional(),
+});
+// Multipart sends segments as a JSON string; JSON bodies send the array.
+const segmentList = z.preprocess((v) => {
+  if (typeof v !== 'string') return v;
+  try {
+    return JSON.parse(v);
+  } catch {
+    return v;
+  }
+}, z.array(segment).max(24));
+
+const segmenting = {
+  mode: z.enum(SEGMENT_MODES).default('auto'),
+  segments: segmentList.optional(),
+};
+
+function checkSegments(body, ctx) {
+  const { mode, segments = [] } = body;
+  if (mode === 'auto') return;
+  const issue = (message) => ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['segments'], message });
+  if (mode === 'single' || mode === 'pattern') {
+    if (segments.length !== 1 || segments[0].role !== 'texture') issue(`${mode} mode needs exactly one box with role "texture"`);
+    return;
+  }
+  if (!segments.length) return issue('Draw at least one box around a nail');
+  if (segments.some((s) => s.role === 'texture')) issue('Full-set boxes need a finger role or "variation"');
+  const fingers = segments.filter((s) => FINGERS.includes(s.role)).map((s) => s.role);
+  if (new Set(fingers).size !== fingers.length) issue('Each finger can only be assigned once');
+}
+
+const designFields = {
   title: z.string().trim().min(1).max(100),
   description: z.string().trim().max(1000).optional(),
   category: z.string().trim().max(40).optional(),
   tags: tags.optional(),
   skinTolerance: skinTolerance.optional(),
-});
+};
 
-export const updateDesignBody = createDesignBody.partial().extend({ isActive: boolish.optional() });
+export const createDesignBody = z.object({ ...designFields, ...segmenting }).superRefine(checkSegments);
+
+export const updateDesignBody = z
+  .object({ ...designFields, ...segmenting, isActive: boolish.optional() })
+  .partial()
+  .superRefine((body, ctx) => body.mode && checkSegments(body, ctx));
+
+// Re-segments the stored original photo (PUT /designs/:id/segments).
+export const segmentDesignBody = z
+  .object({ mode: z.enum(['single', 'set', 'pattern']), segments: segmentList })
+  .superRefine(checkSegments);
 
 export const reprocessBody = z.object({ skinTolerance: skinTolerance.optional() });
 

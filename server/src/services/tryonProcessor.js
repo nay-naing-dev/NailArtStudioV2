@@ -1,6 +1,6 @@
 import sharp from 'sharp';
 import { config } from '../config/env.js';
-import { NailDesign } from '../models/NailDesign.js';
+import { FINGERS, NailDesign } from '../models/NailDesign.js';
 import { TryOn } from '../models/TryOn.js';
 import { buildInput, downloadOutput, modelName, outputUrl, runPrediction } from './replicate.js';
 import { compositeNails } from './tryonComposite.js';
@@ -21,17 +21,47 @@ export function buildPrompt(design, preset = config.replicate.preset) {
     'soft shadows, natural reflections, fine detail and a professional nail-art finish.';
   const keep = 'Keep the hand, fingers, skin, jewellery, pose, background and framing exactly as they are. Change only the nails.';
   if (preset === 'multi-image') {
+    const shows =
+      design.designType === 'set'
+        ? `a full nail art set (${look}): five nails, left to right for the thumb, index, middle, ring and pinky finger`
+        : design.designType === 'pattern'
+          ? `a flat nail art pattern (${look})`
+          : `a nail art design (${look})`;
+    const apply =
+      design.designType === 'set'
+        ? 'Paint each fingernail marked white in image 3 with the nail from image 2 for that finger'
+        : 'Apply the nail design from image 2 to every fingernail marked white in image 3';
     return (
-      `Image 1 is a photo of a hand. Image 2 shows a nail art design (${look}). Image 3 is a black and white mask: white marks the fingernails. ` +
-      `Apply the nail design from image 2 to every fingernail marked white in image 3, matching each nail's shape, size and angle. ${realism} ${keep} ` +
+      `Image 1 is a photo of a hand. Image 2 shows ${shows}. Image 3 is a black and white mask: white marks the fingernails. ` +
+      `${apply}, matching each nail's shape, size and angle. ${realism} ${keep} ` +
       'Return only the edited photo, not the mask.'
     );
   }
   return `${realism} Fingernails painted with the nail art design ${look}. ${keep}`;
 }
 
+/** A full set laid out thumb to pinky in one row, so the model can tell which nail belongs on which finger. */
+async function setStrip(design) {
+  const H = 320;
+  const GAP = 24;
+  const assets = FINGERS.map((f) => design.fingerImages?.[f] ?? design.swatchImage);
+  const nails = await Promise.all(assets.map(async (a) => sharp(await readImage(a)).resize({ height: H }).png().toBuffer({ resolveWithObject: true })));
+  let left = GAP;
+  const composite = nails.map(({ data, info }) => {
+    const item = { input: data, left, top: GAP };
+    left += info.width + GAP;
+    return item;
+  });
+  return sharp({ create: { width: left, height: H + GAP * 2, channels: 3, background: '#e9e6e4' } })
+    .composite(composite)
+    .resize({ width: 1024, height: 768, fit: 'inside', withoutEnlargement: true })
+    .png()
+    .toBuffer();
+}
+
 /** Flattens the design's pattern asset on a neutral background so models don't see black where it's transparent. */
 async function loadPattern(design) {
+  if (design.designType === 'set') return setStrip(design);
   const wanted = config.replicate.patternSource === 'swatch' ? design.swatchImage : design.isolatedImage;
   const asset = wanted || design.isolatedImage || design.swatchImage;
   if (!asset) return undefined;

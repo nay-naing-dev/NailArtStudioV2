@@ -1,7 +1,8 @@
 import sharp from 'sharp';
 import { NailDesign } from '../models/NailDesign.js';
-import { processDesign, isProcessing } from '../services/designProcessor.js';
-import { deleteImage, uploadImage } from '../services/storage.js';
+import { generatedAssets, processDesign, isProcessing } from '../services/designProcessor.js';
+import { segmentDesign } from '../services/designSegmenter.js';
+import { deleteImage, readImage, uploadImage } from '../services/storage.js';
 import { ApiError } from '../utils/ApiError.js';
 
 const isAdmin = (req) => req.user?.role === 'admin';
@@ -11,6 +12,52 @@ const publicFilter = { isActive: true, 'processing.status': 'ready' };
 async function storeOriginal(file) {
   const jpeg = await sharp(file.buffer).rotate().jpeg({ quality: 90 }).toBuffer();
   return uploadImage(jpeg, { folder: 'designs/originals', format: 'jpg' });
+}
+
+/** Fields a hand-segmented design takes from segmentDesign(). Undefined values clear what auto-extraction left. */
+function segmentedFields(result) {
+  const now = new Date();
+  return {
+    designType: result.designType,
+    swatchImage: result.swatchImage,
+    fingerImages: result.fingerImages,
+    isolatedImage: undefined,
+    segments: result.segments,
+    dominantColor: result.dominantColor,
+    textureEditedAt: undefined,
+    processing: { status: 'ready', method: 'manual', nailsDetected: result.segments.length, startedAt: now, finishedAt: now },
+  };
+}
+
+/** Replaces a design's textures with freshly segmented ones, deletes the old files and splits out any variations. */
+async function applySegments(design, result, userId) {
+  const previous = generatedAssets(design);
+  for (const [key, value] of Object.entries(segmentedFields(result))) design.set(key, value);
+  await design.save();
+  await Promise.all([...previous, result.unusedOriginal].map(deleteImage));
+  return createVariations(design, result.variations, userId);
+}
+
+// Each variation box from a full-set photo becomes its own ready-to-use design.
+function createVariations(parent, variations, userId) {
+  return Promise.all(
+    variations.map((v, i) =>
+      NailDesign.create({
+        title: `${parent.title} · ${v.label || `Variation ${i + 1}`}`.slice(0, 100),
+        description: parent.description,
+        category: parent.category,
+        tags: parent.tags,
+        designType: 'single',
+        originalImage: v.originalImage,
+        swatchImage: v.swatchImage,
+        dominantColor: v.dominantColor,
+        segments: [v.segment],
+        variantOf: parent._id,
+        processing: { status: 'ready', method: 'manual', nailsDetected: 1, startedAt: new Date(), finishedAt: new Date() },
+        createdBy: userId,
+      }),
+    ),
+  );
 }
 
 export async function listDesigns(req, res) {
@@ -38,8 +85,24 @@ export async function getDesign(req, res) {
 
 export async function createDesign(req, res) {
   if (!req.file) throw ApiError.badRequest('A reference image is required (field "image")');
-  const { skinTolerance, ...fields } = req.body;
+  const { skinTolerance, mode, segments, ...fields } = req.body;
   const originalImage = await storeOriginal(req.file);
+
+  // Hand-segmented: cropping is quick, so the design is ready as soon as this request returns.
+  if (mode !== 'auto') {
+    let result;
+    try {
+      result = await segmentDesign(req.file.buffer, mode, segments);
+    } catch (err) {
+      await deleteImage(originalImage);
+      throw err;
+    }
+    const design = await NailDesign.create({ ...fields, originalImage, ...segmentedFields(result), createdBy: req.user.id });
+    await deleteImage(result.unusedOriginal);
+    const variants = await createVariations(design, result.variations, req.user.id);
+    return res.status(201).json({ design, variants });
+  }
+
   const design = await NailDesign.create({
     ...fields,
     originalImage,
@@ -55,13 +118,20 @@ export async function createDesign(req, res) {
 export async function updateDesign(req, res) {
   const design = await NailDesign.findById(req.params.id);
   if (!design) throw ApiError.notFound('Design not found');
-  const { skinTolerance, ...fields } = req.body;
+  const { skinTolerance, mode = 'auto', segments, ...fields } = req.body;
   design.set(fields);
 
   let reprocess = false;
   if (req.file) {
     if (isProcessing(design.id)) throw ApiError.conflict('This design is still processing. Try again shortly.');
     const old = design.originalImage;
+    if (mode !== 'auto') {
+      const result = await segmentDesign(req.file.buffer, mode, segments);
+      design.originalImage = await storeOriginal(req.file);
+      const variants = await applySegments(design, result, req.user.id);
+      await deleteImage(old);
+      return res.json({ design, variants });
+    }
     design.originalImage = await storeOriginal(req.file);
     design.processing = { status: 'pending' };
     await deleteImage(old);
@@ -82,6 +152,8 @@ export async function updateTexture(req, res) {
   if (!design) throw ApiError.notFound('Design not found');
   if (design.processing?.status !== 'ready') throw ApiError.conflict('Wait for the extraction to finish before editing the texture');
   if (isProcessing(design.id)) throw ApiError.conflict('This design is processing. Try again shortly.');
+  // A set's fallback texture is one of its finger textures, so editing it alone would break that finger.
+  if (design.designType === 'set') throw ApiError.conflict("Use Edit segments to change a full set's textures");
 
   // Opaque PNG, capped in size like the extracted swatch, with EXIF rotation applied.
   const png = await sharp(req.file.buffer)
@@ -97,6 +169,17 @@ export async function updateTexture(req, res) {
   await design.save();
   await deleteImage(old);
   res.json({ design });
+}
+
+/** Re-crops the stored reference photo with new boxes (PUT /designs/:id/segments, JSON { mode, segments }). */
+export async function resegmentDesign(req, res) {
+  const design = await NailDesign.findById(req.params.id);
+  if (!design) throw ApiError.notFound('Design not found');
+  if (isProcessing(design.id)) throw ApiError.conflict('This design is processing. Try again shortly.');
+
+  const result = await segmentDesign(await readImage(design.originalImage), req.body.mode, req.body.segments);
+  const variants = await applySegments(design, result, req.user.id);
+  res.json({ design, variants });
 }
 
 export async function reprocessDesign(req, res) {

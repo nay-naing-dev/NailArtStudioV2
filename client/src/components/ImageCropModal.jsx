@@ -12,7 +12,7 @@ const ASPECTS = [
 ];
 const MAX_OUTPUT_PX = 2000;
 
-const loadImage = (src) =>
+export const loadImage = (src) =>
   new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve(img);
@@ -21,7 +21,7 @@ const loadImage = (src) =>
   });
 
 // Stored textures live on another origin; fetching them as a blob keeps the canvas export untainted.
-const toBlobUrl = async (source) => {
+export const toBlobUrl = async (source) => {
   if (typeof source !== 'string') return URL.createObjectURL(source);
   const res = await fetch(source, { cache: 'no-cache', mode: 'cors' });
   if (!res.ok) throw new Error('Could not load the image');

@@ -5,6 +5,13 @@ import { config } from '../config/env.js';
 
 const inFlight = new Set();
 
+/** Every stored file generated from the original photo, without duplicates (a set's swatch is also a finger texture). */
+export function generatedAssets(design) {
+  const fingers = design.fingerImages ? Object.values(design.fingerImages.toObject?.() ?? design.fingerImages) : [];
+  const all = [design.isolatedImage, design.swatchImage, ...fingers].filter((a) => a?.publicId);
+  return [...new Map(all.map((a) => [a.publicId, a])).values()];
+}
+
 /**
  * Runs the isolation pipeline for a design and stores the results.
  * Called without awaiting from the controllers: progress is written to `design.processing`.
@@ -32,7 +39,11 @@ export async function processDesign(designId, { buffer, skinTolerance } = {}) {
       uploadImage(result.swatchPng, { folder: 'designs/swatches' }),
     ]);
 
-    const previous = [design.isolatedImage, design.swatchImage];
+    // Auto-extraction always yields a single texture, replacing any hand-segmented set or pattern.
+    const previous = generatedAssets(design);
+    design.designType = 'single';
+    design.fingerImages = undefined;
+    design.segments = undefined;
     design.isolatedImage = isolated;
     design.swatchImage = swatch;
     design.dominantColor = result.dominantColor;

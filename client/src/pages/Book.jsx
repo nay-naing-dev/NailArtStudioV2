@@ -9,6 +9,7 @@ import {
   errorMessage,
   servicesApi,
 } from "../lib/api";
+import { sized } from "../lib/images";
 import { useAuth } from "../lib/auth";
 import { formatDate, formatPrice, formatTime, isoDate } from "../lib/format";
 import { GridBackdrop } from "../components/GridBackdrop";
@@ -312,7 +313,7 @@ export default function Book() {
                     }`}
                     title={d.title}
                   >
-                    <img src={d.imageUrl} alt="" className="h-20 w-full object-cover" />
+                    <img src={sized(d.imageUrl, 240)} alt="" loading="lazy" className="h-20 w-full object-cover" />
                     <span className="block truncate bg-white px-1.5 py-1 text-xs">
                       {d.title}
                     </span>

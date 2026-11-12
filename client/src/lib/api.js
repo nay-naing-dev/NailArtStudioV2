@@ -54,8 +54,10 @@ export const servicesApi = {
 export const designsApi = {
   list: (params) => api.get('/designs', { params }).then((r) => r.data),
   get: (id) => api.get(`/designs/${id}`).then((r) => r.data.design),
-  create: (formData) => api.post('/designs', formData).then((r) => r.data.design),
   update: (id, data) => api.patch(`/designs/${id}`, data).then((r) => r.data.design),
+  // Same as create/update, plus `variants`: designs split out of a full-set photo.
+  save: (id, formData) => (id ? api.patch(`/designs/${id}`, formData) : api.post('/designs', formData)).then((r) => r.data),
+  segment: (id, body) => api.put(`/designs/${id}/segments`, body).then((r) => r.data),
   updateTexture: (id, file) => {
     const fd = new FormData();
     fd.append('image', file);

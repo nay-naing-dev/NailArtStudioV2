@@ -13,7 +13,7 @@ import { detectHands, getHandLandmarker } from '../tryon/handDetector';
 import { adjustNail, computeNails, hitTest, isBackOfHand, refineNails } from '../tryon/nailGeometry';
 import { applyShape, DEFAULT_SHAPE, NAIL_SHAPES } from '../tryon/nailShapeProfile';
 import { NailShapeIcon } from '../lib/nailShapes';
-import { renderScene } from '../tryon/renderNails';
+import { renderScene, textureFor } from '../tryon/renderNails';
 
 const MAX_PHOTO = 1400;
 const DEFAULT_SETTINGS = { opacity: 0.96, gloss: 0.6, shading: 1, lengthScale: 1, widthScale: 1, shape: DEFAULT_SHAPE };
@@ -72,7 +72,7 @@ export default function TryOn() {
   const [status, setStatus] = useState('idle'); // idle | detecting | ready | no-hands | error
   const [error, setError] = useState('');
   const [hands, setHands] = useState([]); // [{ nails, back }]
-  const [swatch, setSwatch] = useState(null);
+  const [textures, setTextures] = useState(null); // { base, fingers: { thumb: img, ... }, pattern }
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [adjust, setAdjust] = useState({}); // nailId -> { hidden, dx, dy, lengthScale, widthScale, rotation }
   const [selectedId, setSelectedId] = useState(null);
@@ -96,16 +96,24 @@ export default function TryOn() {
     if (!designId && designs.data?.items.length) setParams({ design: designs.data.items[0].id }, { replace: true });
   }, [designId, designs.data, setParams]);
 
+  // The main texture, plus each finger's own art for a full set. A finger texture that fails falls back to the main one.
   useEffect(() => {
-    if (!design?.swatchImage) return setSwatch(null);
+    if (!design?.textureUrl) return setTextures(null);
     let cancelled = false;
-    loadImage(design.swatchImage.url)
-      .then((img) => !cancelled && setSwatch(img))
+    const fingers = Object.entries(design.fingerTextures ?? {});
+    Promise.all([
+      loadImage(design.textureUrl),
+      ...fingers.map(([finger, url]) => loadImage(url).then((img) => [finger, img], () => null)),
+    ])
+      .then(([base, ...loaded]) => {
+        if (cancelled) return;
+        setTextures({ base, fingers: Object.fromEntries(loaded.filter(Boolean)), pattern: design.designType === 'pattern' });
+      })
       .catch(() => !cancelled && setError(t('tryon.textureFail')));
     return () => {
       cancelled = true;
     };
-  }, [design?.swatchImage]);
+  }, [design?.textureUrl, design?.fingerTextures, design?.designType]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleFile = async (file) => {
     if (!file) return;
@@ -156,10 +164,10 @@ export default function TryOn() {
       canvas.height = photo.height;
       const ctx = canvas.getContext('2d');
       if (compare) ctx.drawImage(photo, 0, 0);
-      else renderScene(ctx, photo, nails, swatch, settings, { selectedId, showGuides });
+      else renderScene(ctx, photo, nails, textures, settings, { selectedId, showGuides });
     });
     return () => cancelAnimationFrame(frame);
-  }, [photo, nails, swatch, settings, selectedId, showGuides, compare]);
+  }, [photo, nails, textures, settings, selectedId, showGuides, compare]);
 
   // ---------- pointer: select and drag nails ----------
   const toCanvas = (e) => {
@@ -378,6 +386,14 @@ export default function TryOn() {
             ) : (
               <p className="text-sm text-ink-soft">{t('tryon.noDesigns')}</p>
             )}
+            {(design?.designType === 'set' || design?.designType === 'pattern') && (
+              <p className="mt-2 flex items-center gap-1.5 text-xs text-ink-soft">
+                <span className="pill bg-rose-500/10 px-2 py-0.5 font-medium text-rose-700">
+                  {t(design.designType === 'set' ? 'tryon.fullSet' : 'tryon.pattern')}
+                </span>
+                {t(design.designType === 'set' ? 'tryon.fullSetHint' : 'tryon.patternHint')}
+              </p>
+            )}
           </section>
 
           {aiConfig.data && !aiConfig.data.enabled && isAdmin && (
@@ -475,10 +491,13 @@ export default function TryOn() {
                   <button
                     key={n.id}
                     onClick={() => setSelectedId(n.id)}
-                    className={`pill px-3 py-1 text-xs ${
+                    className={`pill inline-flex items-center gap-1.5 px-3 py-1 text-xs ${
                       n.id === selectedId ? 'pill-active bg-ink text-white' : 'border border-line bg-white'
                     } ${adjust[n.id]?.hidden ? 'line-through opacity-50' : ''}`}
                   >
+                    {design?.designType === 'set' && textureFor(textures, n.finger) && (
+                      <img src={textureFor(textures, n.finger).src} alt="" className="h-4 w-3 rounded-[40%/30%] object-cover" />
+                    )}
                     {hands.length > 1 && `${Number(n.id[0]) + 1}·`}
                     {t(`tryon.fingers.${n.finger}`)}
                   </button>

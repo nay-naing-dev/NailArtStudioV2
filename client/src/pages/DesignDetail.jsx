@@ -2,6 +2,7 @@ import { Link, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, CalendarPlus, Hand, Palette } from 'lucide-react';
 import { designsApi } from '../lib/api';
+import { sized } from '../lib/images';
 import { ErrorState, PageLoader } from '../components/ui';
 
 export default function DesignDetail() {
@@ -24,7 +25,7 @@ export default function DesignDetail() {
       <div className="grid gap-10 md:grid-cols-2">
         <div>
           {design.imageUrl ? (
-            <img src={design.imageUrl} alt={design.title} className="aspect-[4/5] w-full rounded-3xl object-cover" />
+            <img src={sized(design.imageUrl, 1200)} alt={design.title} className="aspect-[4/5] w-full rounded-3xl object-cover" />
           ) : (
             <div className="flex aspect-[4/5] w-full items-center justify-center bg-gradient-to-br from-blush-100 to-blush-200 text-rose-500/70">
               <Palette className="size-24" strokeWidth={1} />
