@@ -1,6 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion';
+import {
+  motion,
+  motionValue,
+  useMotionTemplate,
+  useMotionValueEvent,
+  useReducedMotion,
+  useScroll,
+  useSpring,
+  useTransform,
+  useVelocity,
+} from 'framer-motion';
 import { ArrowRight, Hand } from 'lucide-react';
 import { paintNails } from '../lib/heroPolish';
 import { useI18n } from '../lib/i18n';
@@ -22,6 +32,18 @@ const LIGHT_URL = '/hero/hand-light.webp';
 const LANDMARKS_URL = '/hero/hand.json';
 const AUTOPLAY_MS = 3800;
 const MAX_DESIGNS = 6;
+
+/*
+ * Scroll timeline of the pinned hero (fractions of the section's scroll):
+ *   0 → ZOOM_END     copy slides away, the camera moves in on the nails
+ *   ZOOM_END → CYCLE_END   held close-up; each step of scrolling paints the next design
+ *   CYCLE_END → EXIT_END   the hand lifts out of frame and the row of nail tips rises into place
+ *   EXIT_END → 1     the row holds, then the page carries on
+ */
+const ZOOM_END = 0.2;
+const FALLBACK_PROGRESS = motionValue(1); // used when the sequence is off (reduced motion)
+const CYCLE_END = 0.64;
+const EXIT_END = 0.88;
 
 const DEMO_DESIGNS = [
   { id: 'demo-rose-chrome', title: 'Rosé Chrome', category: 'chrome', textureUrl: '/hero/swatches/rose-chrome.webp', color: '#d9779c', finish: 'chrome' },
@@ -205,10 +227,43 @@ export default function NailArtHero({ designs: galleryDesigns = [] }) {
     e.currentTarget.children[next]?.focus();
   };
 
-  // Gentle parallax: the hand drifts up a little as the page scrolls.
+  // ----- scroll-driven sequence -----
+  const pinned = !reduceMotion;
+  const isDesktop = useIsDesktop();
   const sectionRef = useRef(null);
-  const { scrollYProgress } = useScroll({ target: sectionRef, offset: ['start start', 'end start'] });
-  const handY = useTransform(scrollYProgress, [0, 1], [0, reduceMotion ? 0 : -80]);
+  const { scrollYProgress: p } = useScroll({ target: sectionRef, offset: ['start start', 'end end'] });
+
+  // Scrolling takes over from autoplay, and the close-up steps through the designs.
+  useMotionValueEvent(p, 'change', (v) => {
+    if (!pinned) return;
+    if (v > 0.01) setPaused(true);
+    if (v >= ZOOM_END && v < CYCLE_END) {
+      const i = Math.min(designs.length - 1, Math.floor(((v - ZOOM_END) / (CYCLE_END - ZOOM_END)) * designs.length));
+      setActive((a) => (a === i ? a : i));
+    }
+  });
+
+  const copyOpacity = useTransform(p, [0, ZOOM_END * 0.8], [1, 0]);
+  const copyX = useTransform(p, [0, ZOOM_END], [0, -80]);
+  const hintOpacity = useTransform(p, [0, 0.04], [1, 0]);
+
+  // The camera: zoom towards the nails (they sit in the top fifth of the photo), drift a little while held,
+  // then the hand lifts away.
+  const handScale = useTransform(p, [0, ZOOM_END, CYCLE_END, CYCLE_END + 0.14], [1, 1.75, 1.9, 1.5]);
+  const zoomY = isDesktop ? '34%' : '24%';
+  const handY = useTransform(p, [0, ZOOM_END, CYCLE_END, CYCLE_END + 0.14], ['0%', zoomY, zoomY, '-110%']);
+  const handX = useTransform(p, [0, ZOOM_END, CYCLE_END], ['0%', isDesktop ? '-20%' : '0%', isDesktop ? '-18%' : '0%']);
+  const handRotate = useTransform(p, [0, ZOOM_END, CYCLE_END, EXIT_END], [0, -3, 2, 6]);
+  const handOpacity = useTransform(p, [CYCLE_END + 0.04, CYCLE_END + 0.12], [1, 0]);
+  // Motion blur that follows scroll speed, like a fast camera move.
+  const speed = useSpring(useTransform(useVelocity(p), (v) => Math.min(6, Math.abs(v) * 5)), { stiffness: 300, damping: 40 });
+  const handFilter = useMotionTemplate`blur(${speed}px)`;
+
+  const pickerOpacity = useTransform(p, [CYCLE_END, CYCLE_END + 0.06], [1, 0]);
+  const stripOpacity = useTransform(p, [CYCLE_END + 0.09, CYCLE_END + 0.15], [0, 1]);
+  const stripTitleY = useTransform(p, [CYCLE_END + 0.08, EXIT_END], ['30vh', '0vh']);
+  const stripEvents = useTransform(stripOpacity, (o) => (o > 0.6 ? 'auto' : 'none'));
+  const stepCounter = `${String(active + 1).padStart(2, '0')} / ${String(designs.length).padStart(2, '0')}`;
 
   const tryOnTo = isDemo ? '/try-on' : `/try-on?design=${current.id}`;
   const bookTo = isDemo ? '/book' : `/book?design=${current.id}`;
@@ -263,71 +318,172 @@ export default function NailArtHero({ designs: galleryDesigns = [] }) {
     </div>
   );
 
+  const handStyle = pinned
+    ? { scale: handScale, x: handX, y: handY, rotate: handRotate, opacity: handOpacity, filter: handFilter, transformOrigin: '50% 18%' }
+    : undefined;
+
   return (
     <section
       ref={sectionRef}
-      className="relative isolate overflow-hidden transition-[background-color] duration-[900ms] ease-out"
+      className={`relative isolate transition-[background-color] duration-[900ms] ease-out ${pinned ? 'h-[360svh]' : ''}`}
       style={{ backgroundColor: backdrop.base }}
     >
-      {/* Soft light behind the hand, tinted by the design */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 -z-10 transition-[background] duration-[900ms]"
-        style={{ background: `radial-gradient(60% 55% at 58% 62%, ${backdrop.glow} 0%, transparent 70%)` }}
-      />
+      <div className={pinned ? 'sticky top-16 h-[calc(100svh-4rem)] overflow-hidden' : 'relative overflow-hidden'}>
+        {/* Soft light behind the hand, tinted by the design */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 -z-10 transition-[background] duration-[900ms]"
+          style={{ background: `radial-gradient(60% 55% at 55% 55%, ${backdrop.glow} 0%, transparent 70%)` }}
+        />
 
-      <div className="mx-auto grid max-w-6xl gap-5 px-4 pt-8 md:min-h-[calc(100svh-4rem)] md:grid-cols-12 md:gap-4 md:pt-0">
-        {/* Copy */}
-        <div className="relative z-20 flex flex-col justify-center md:col-span-5 md:py-16">
-          <h1 className="text-4xl leading-[1.05] font-semibold sm:text-6xl lg:text-7xl">
-            {t('home.titleBefore')} <em className="text-rose-500">{t('home.titleEm')}</em> {t('home.titleAfter')}
-          </h1>
-          <p className="mt-5 hidden max-w-md text-base text-ink-soft sm:block md:text-lg">{t('home.subtitle')}</p>
-          <div className="mt-6 flex gap-3 sm:mt-8">
-            <Link to={bookTo} className="btn-primary flex-1 px-3 py-3 whitespace-nowrap sm:flex-none sm:px-10 sm:py-4 sm:text-base sm:tracking-wide">
-              {t('home.hero.book')} <ArrowRight className="size-5" />
-            </Link>
-            <Link to={tryOnTo} className="btn-secondary flex-1 px-3 py-3 whitespace-nowrap sm:flex-none sm:px-10 sm:py-4 sm:text-base sm:tracking-wide">
-              <Hand className="hidden size-5 sm:block" /> {t('home.hero.tryYours')}
-            </Link>
+        <div className="mx-auto grid h-full max-w-6xl gap-5 px-4 pt-8 md:grid-cols-12 md:gap-4 md:pt-0">
+          {/* Copy */}
+          <motion.div
+            style={pinned ? { opacity: copyOpacity, x: copyX } : undefined}
+            className="relative z-20 flex flex-col justify-center md:col-span-5 md:py-16"
+          >
+            <h1 className="text-4xl leading-[1.05] font-semibold sm:text-6xl lg:text-7xl">
+              {t('home.titleBefore')} <em className="text-rose-500">{t('home.titleEm')}</em> {t('home.titleAfter')}
+            </h1>
+            <p className="mt-5 hidden max-w-md text-base text-ink-soft sm:block md:text-lg">{t('home.subtitle')}</p>
+            <div className="mt-6 flex gap-3 sm:mt-8">
+              <Link to={bookTo} className="btn-primary flex-1 px-3 py-3 whitespace-nowrap sm:flex-none sm:px-10 sm:py-4 sm:text-base sm:tracking-wide">
+                {t('home.hero.book')} <ArrowRight className="size-5" />
+              </Link>
+              <Link to={tryOnTo} className="btn-secondary flex-1 px-3 py-3 whitespace-nowrap sm:flex-none sm:px-10 sm:py-4 sm:text-base sm:tracking-wide">
+                <Hand className="hidden size-5 sm:block" /> {t('home.hero.tryYours')}
+              </Link>
+            </div>
+          </motion.div>
+
+          {/* Hand (on phones the picker floats over the faded palm) */}
+          <div className="relative flex items-end justify-center md:col-span-4">
+            <motion.div
+              style={handStyle}
+              className="relative aspect-[1200/1822] w-full max-w-[300px] will-change-transform md:h-[min(80svh,700px)] md:w-auto md:max-w-none"
+            >
+              {/* The photo was framed tight on the wrist side, so that edge fades into the backdrop */}
+              <div className={`hero-hand-fade absolute inset-0 ${reduceMotion ? '' : 'hero-hand-float'}`}>
+                {/* Bare hand underneath, so there's something on screen while the first design renders */}
+                <img src={HAND_URL} alt="" className="absolute inset-0 size-full object-contain object-bottom drop-shadow-2xl" />
+                {designs.map((d, i) =>
+                  renders[d.id] ? (
+                    <img
+                      key={d.id}
+                      src={renders[d.id].url}
+                      alt={i === active ? t('home.hero.handAlt', { name: d.title }) : ''}
+                      aria-hidden={i !== active}
+                      className="absolute inset-0 size-full object-contain object-bottom transition-opacity duration-500 ease-out"
+                      style={{ opacity: i === active ? 1 : 0 }}
+                    />
+                  ) : null,
+                )}
+              </div>
+              {!renders[current.id] && !failed && (
+                <span className="absolute top-1/3 left-1/2 -translate-x-1/2 rounded-full bg-white/70 px-3 py-1 text-xs text-ink-soft backdrop-blur">
+                  {t('home.hero.painting')}
+                </span>
+              )}
+            </motion.div>
+            <motion.div style={pinned ? { opacity: pickerOpacity } : undefined} className="absolute inset-x-0 bottom-3 z-10 md:hidden">
+              {picker}
+            </motion.div>
           </div>
+
+          {/* Design picker */}
+          <motion.div
+            style={pinned ? { opacity: pickerOpacity } : undefined}
+            className="relative z-10 hidden items-center md:col-span-3 md:flex"
+          >
+            <div className="w-full">
+              {pinned && <p className="mb-2 text-right text-xs tracking-[0.2em] text-ink-soft tabular-nums">{stepCounter}</p>}
+              {picker}
+            </div>
+          </motion.div>
         </div>
 
-        {/* Hand (on phones the picker floats over the faded palm) */}
-        <div className="relative flex items-end justify-center md:col-span-4">
+        {/* Scroll hint */}
+        {pinned && (
+          <motion.div
+            style={{ opacity: hintOpacity }}
+            className="pointer-events-none absolute bottom-5 left-1/2 hidden -translate-x-1/2 flex-col items-center gap-2 text-xs tracking-[0.2em] text-ink-soft uppercase md:flex"
+          >
+            {t('home.hero.scrollHint')}
+            <span className="hero-scroll-line h-8 w-px bg-ink/40" />
+          </motion.div>
+        )}
+
+        {/* The row of nail tips that rises in as the hand leaves */}
         <motion.div
-          style={{ y: handY }}
-          className="relative aspect-[1200/1822] w-full max-w-[300px] md:h-[min(80svh,700px)] md:w-auto md:max-w-none"
+          style={pinned ? { opacity: stripOpacity, pointerEvents: stripEvents } : undefined}
+          className={pinned ? 'absolute inset-0 z-30 flex flex-col items-center justify-center px-4' : 'relative flex flex-col items-center px-4 py-16'}
         >
-          {/* The photo was framed tight on the wrist side, so that edge fades into the backdrop */}
-          <div className={`hero-hand-fade absolute inset-0 ${reduceMotion ? '' : 'hero-hand-float'}`}>
-            {/* Bare hand underneath, so there's something on screen while the first design renders */}
-            <img src={HAND_URL} alt="" className="absolute inset-0 size-full object-contain object-bottom drop-shadow-2xl" />
-            {designs.map((d, i) =>
-              renders[d.id] ? (
-                <img
-                  key={d.id}
-                  src={renders[d.id].url}
-                  alt={i === active ? t('home.hero.handAlt', { name: d.title }) : ''}
-                  aria-hidden={i !== active}
-                  className="absolute inset-0 size-full object-contain object-bottom transition-opacity duration-700 ease-out"
-                  style={{ opacity: i === active ? 1 : 0 }}
-                />
-              ) : null,
-            )}
+          <motion.h2
+            style={pinned ? { y: stripTitleY } : undefined}
+            className="text-center text-4xl font-semibold sm:text-5xl md:text-6xl"
+          >
+            {t('home.hero.stripTitle', { count: designs.length })}
+          </motion.h2>
+          <motion.p style={pinned ? { y: stripTitleY } : undefined} className="mt-3 text-center text-ink-soft">
+            {t('home.hero.stripSubtitle')}
+          </motion.p>
+          <div className="mt-10 flex w-full max-w-5xl items-end justify-center gap-3 sm:gap-6 md:mt-14 md:gap-10">
+            {designs.map((d, i) => (
+              <NailTip
+                key={d.id}
+                design={d}
+                index={i}
+                count={designs.length}
+                progress={pinned ? p : null}
+                active={i === active}
+                onSelect={() => pick(i)}
+              />
+            ))}
           </div>
-          {!renders[current.id] && !failed && (
-            <span className="absolute top-1/3 left-1/2 -translate-x-1/2 rounded-full bg-white/70 px-3 py-1 text-xs text-ink-soft backdrop-blur">
-              {t('home.hero.painting')}
-            </span>
-          )}
         </motion.div>
-          <div className="absolute inset-x-0 bottom-3 z-10 md:hidden">{picker}</div>
-        </div>
-
-        {/* Design picker */}
-        <div className="relative z-10 hidden items-center md:col-span-3 md:flex">{picker}</div>
       </div>
     </section>
   );
+}
+
+/** One glossy press-on tip in the row: rises in on its own beat, links to the design. */
+function NailTip({ design, index, count, progress, active, onSelect }) {
+  const start = CYCLE_END + 0.08 + (index / count) * 0.06;
+  const y = useTransform(progress ?? FALLBACK_PROGRESS, [start, start + 0.12], ['70vh', '0vh']);
+  const rotate = useTransform(progress ?? FALLBACK_PROGRESS, [start, start + 0.12], [index % 2 ? 8 : -8, 0]);
+  const to = design.id.startsWith('demo-') ? '/designs' : `/designs/${design.id}`;
+  return (
+    <motion.div style={progress ? { y, rotate } : undefined} className="flex min-w-0 flex-1 flex-col items-center sm:flex-none">
+      <Link
+        to={to}
+        onMouseEnter={onSelect}
+        onFocus={onSelect}
+        className="group flex flex-col items-center gap-3 focus-visible:outline-none"
+      >
+        <span
+          className={`hero-tip relative block aspect-[5/8] w-full max-w-[110px] bg-cover bg-center shadow-xl shadow-black/15 transition duration-300 group-hover:-translate-y-2 sm:w-20 md:w-28 ${
+            active ? 'ring-2 ring-ink/70 ring-offset-4 ring-offset-transparent' : ''
+          }`}
+          style={{ backgroundImage: `url(${design.textureUrl})` }}
+        />
+        <span className="text-center">
+          <span className="block text-sm font-medium sm:text-base">{design.title}</span>
+          {design.category && <span className="hidden text-xs text-ink-soft capitalize sm:block">{design.category}</span>}
+        </span>
+      </Link>
+    </motion.div>
+  );
+}
+
+/** Tracks the md breakpoint, so the camera can centre the hand on wide screens. */
+function useIsDesktop() {
+  const query = '(min-width: 768px)';
+  const [match, setMatch] = useState(() => typeof window !== 'undefined' && window.matchMedia(query).matches);
+  useEffect(() => {
+    const mq = window.matchMedia(query);
+    const on = () => setMatch(mq.matches);
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
+  return match;
 }
