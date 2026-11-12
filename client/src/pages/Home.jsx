@@ -1,8 +1,9 @@
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, CalendarCheck, Hand, Sparkles } from "lucide-react";
+import { CalendarCheck, Hand, Sparkles } from "lucide-react";
 import { designsApi } from "../lib/api";
-import { DesignFan, HeroStack } from "../components/PhotoStack";
+import { DesignFan } from "../components/PhotoStack";
+import NailArtHero from "../components/NailArtHero";
 import { ArtistsSection } from "../components/Artists";
 import Location from "../components/Location";
 import { GridBackdrop } from "../components/GridBackdrop";
@@ -23,27 +24,7 @@ export default function Home() {
 
   return (
     <>
-      <div className="relative isolate overflow-hidden">
-        <GridBackdrop />
-        <section className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-14 md:grid-cols-2 md:py-24">
-          <div>
-            <h1 className="text-5xl leading-[1.05] font-semibold sm:text-6xl md:text-7xl">
-              {t("home.titleBefore")}{" "}
-              <em className="text-rose-500">{t("home.titleEm")}</em>{" "}
-              {t("home.titleAfter")}
-            </h1>
-            <div className="mt-10 flex flex-col gap-4 sm:flex-row">
-              <Link to="/book" className="btn-primary btn-lg">
-                {t("home.ctaBook")} <ArrowRight className="size-5" />
-              </Link>
-              <Link to="/designs" className="btn-secondary btn-lg">
-                {t("home.ctaBrowse")}
-              </Link>
-            </div>
-          </div>
-          <HeroStack items={(data?.items ?? []).filter((d) => d.imageUrl)} />
-        </section>
-      </div>
+      <NailArtHero designs={data?.items ?? []} />
 
       <section className="border-y border-line bg-white">
         <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 md:grid-cols-3">
