@@ -164,3 +164,32 @@ html[data-theme='dark'] {
       -8px 0;
   }
 }
+
+/* Home hero: the hand breathes slightly, the design name eases in, the autoplay bar fills. */
+@keyframes hero-hand-float {
+  from { transform: translateY(0) scale(1); }
+  to { transform: translateY(-10px) scale(1.015); }
+}
+.hero-hand-float {
+  animation: hero-hand-float 6s ease-in-out infinite alternate;
+  transform-origin: 50% 100%;
+}
+@keyframes hero-name-in {
+  from { opacity: 0; transform: translateY(6px); filter: blur(4px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+.hero-name-in {
+  animation: hero-name-in 0.5s ease-out both;
+}
+@keyframes hero-progress {
+  from { width: 0; }
+  to { width: 100%; }
+}
+.hero-progress {
+  animation-name: hero-progress;
+  animation-timing-function: linear;
+  animation-fill-mode: both;
+}
+.hero-hand-fade {
+  mask-image: linear-gradient(to bottom, #000 58%, transparent 97%);
+}

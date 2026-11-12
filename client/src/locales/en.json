@@ -37,7 +37,16 @@
     "f3Text": "Every design is painted by our artists, from minimal to maximal.",
     "latest": "Latest designs",
     "seeAll": "See all",
-    "ctaBook": "Book Now"
+    "ctaBook": "Book Now",
+    "hero": {
+      "nowShowing": "Now showing",
+      "pick": "Pick a nail design",
+      "book": "Book this look",
+      "tryYours": "Try it on your hand",
+      "tryThis": "Try this design on your photo",
+      "painting": "Painting nails…",
+      "handAlt": "A hand wearing the {{name}} nail design"
+    }
   },
   "services": {
     "title": "Services and pricing",
