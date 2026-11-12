@@ -2,17 +2,15 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion';
 import { ArrowRight, Hand } from 'lucide-react';
-import { computeNails, refineNails } from '../tryon/nailGeometry';
-import { applyShape } from '../tryon/nailShapeProfile';
-import { renderNail } from '../tryon/renderNails';
+import { paintNails } from '../lib/heroPolish';
 import { useI18n } from '../lib/i18n';
 import { useTheme } from '../lib/theme';
 
 /**
- * Home hero: one hand photo, with the chosen nail art rendered onto its nails by the try-on engine.
+ * Home hero: one hand photo, with the chosen nail art painted onto its nails (see lib/heroPolish.js).
  *
- * The hand photo is a cut-out (transparent background) with its hand landmarks detected ahead of time
- * (public/hero/hand.json), so no hand model has to load here. Each design is rendered once, lazily, and the
+ * The hand photo is a cut-out (transparent background) whose nail plates were fitted by hand and stored in
+ * public/hero/hand.json, so no hand model has to load here. Each design is rendered once, lazily, and the
  * results crossfade while the backdrop shifts to a tint of the design.
  *
  * Designs come from the gallery (any design with a try-on texture). Until the studio has uploaded some,
@@ -22,18 +20,16 @@ import { useTheme } from '../lib/theme';
 const HAND_URL = '/hero/hand.webp';
 const LIGHT_URL = '/hero/hand-light.webp';
 const LANDMARKS_URL = '/hero/hand.json';
-const NAIL_SHAPE = 'Oval';
-const RENDER_SETTINGS = { opacity: 1, gloss: 0.55, shading: 1 };
 const AUTOPLAY_MS = 3800;
 const MAX_DESIGNS = 6;
 
 const DEMO_DESIGNS = [
-  { id: 'demo-rose-chrome', title: 'Rosé Chrome', category: 'chrome', textureUrl: '/hero/swatches/rose-chrome.webp', color: '#d9779c' },
+  { id: 'demo-rose-chrome', title: 'Rosé Chrome', category: 'chrome', textureUrl: '/hero/swatches/rose-chrome.webp', color: '#d9779c', finish: 'chrome' },
   { id: 'demo-milk-french', title: 'Milk French', category: 'french', textureUrl: '/hero/swatches/milk-french.webp', color: '#efcfd2' },
   { id: 'demo-midnight-gold', title: 'Midnight Gold', category: 'foil', textureUrl: '/hero/swatches/midnight-gold.webp', color: '#2b3670' },
   { id: 'demo-cloud-marble', title: 'Cloud Marble', category: 'marble', textureUrl: '/hero/swatches/cloud-marble.webp', color: '#cfc7bd' },
   { id: 'demo-cherry-dot', title: 'Cherry Dot', category: 'dots', textureUrl: '/hero/swatches/cherry-dot.webp', color: '#c11a3b' },
-  { id: 'demo-lilac-aura', title: 'Lilac Aura', category: 'aura', textureUrl: '/hero/swatches/lilac-aura.webp', color: '#b48fdc' },
+  { id: 'demo-lilac-aura', title: 'Lilac Aura', category: 'aura', textureUrl: '/hero/swatches/lilac-aura.webp', color: '#b48fdc', finish: 'satin' },
 ];
 
 // ---------- helpers ----------
@@ -86,7 +82,7 @@ function toCanvas(img) {
 /**
  * Loads the hand once: the cut-out, its lighting source and the nails fitted to it.
  * The lighting source is the same photo with skin colour carried past the hand's edges, so nails near the
- * outline aren't darkened by the transparent background when the renderer samples the light under them.
+ * outline aren't darkened by the transparent background when the renderer reads the light under them.
  */
 async function loadHand() {
   const [img, lightImg, meta] = await Promise.all([
@@ -95,31 +91,33 @@ async function loadHand() {
     fetch(LANDMARKS_URL).then((r) => r.json()),
   ]);
   const photo = toCanvas(img);
-  const ctx = photo.getContext('2d', { willReadFrequently: true });
-  const light = lightImg ? toCanvas(lightImg) : photo;
-  // hand.json carries nails measured from this exact photo; fall back to estimating them from the landmarks.
-  const nails = meta.nails?.length
-    ? meta.nails.map((n) => ({ ...n, shape: NAIL_SHAPE }))
-    : refineNails(
-        computeNails(meta.landmarks, photo.width, photo.height),
-        ctx.getImageData(0, 0, photo.width, photo.height),
-      ).map((n) => applyShape(n, NAIL_SHAPE));
-  return { photo, light, nails };
+  const lightCanvas = lightImg ? toCanvas(lightImg) : photo;
+  const light = lightCanvas.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, photo.width, photo.height);
+  return { photo, light, nails: meta.nails };
+}
+
+function textureData(img) {
+  const c = document.createElement('canvas');
+  c.width = img.naturalWidth;
+  c.height = img.naturalHeight;
+  const ctx = c.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(img, 0, 0);
+  return ctx.getImageData(0, 0, c.width, c.height);
 }
 
 /** Renders one design onto the hand and returns an object URL of the result. */
-async function renderDesign(hand, textureUrl) {
-  const swatch = await loadImage(textureUrl);
+async function renderDesign(hand, design) {
+  const swatch = await loadImage(design.textureUrl);
   const out = document.createElement('canvas');
   out.width = hand.photo.width;
   out.height = hand.photo.height;
-  const ctx = out.getContext('2d');
+  const ctx = out.getContext('2d', { willReadFrequently: true });
   ctx.drawImage(hand.photo, 0, 0);
-  for (const nail of hand.nails) renderNail(ctx, hand.light, nail, swatch, RENDER_SETTINGS);
+  paintNails(ctx, hand.light, hand.nails, textureData(swatch), design.finish);
   // Keep the polish inside the finger outline
   ctx.globalCompositeOperation = 'destination-in';
   ctx.drawImage(hand.photo, 0, 0);
-  const blob = await new Promise((res) => out.toBlob(res, 'image/webp', 0.9));
+  const blob = await new Promise((res) => out.toBlob(res, 'image/webp', 0.92));
   return { url: URL.createObjectURL(blob), color: averageColor(swatch) };
 }
 
@@ -162,7 +160,7 @@ export default function NailArtHero({ designs: galleryDesigns = [] }) {
           if (renders[d.id]) continue;
           await new Promise((r) => idle(r));
           try {
-            const result = await renderDesign(hand, d.textureUrl);
+            const result = await renderDesign(hand, d);
             if (cancelled) return URL.revokeObjectURL(result.url);
             setRenders((prev) => ({ ...prev, [d.id]: result }));
           } catch {
