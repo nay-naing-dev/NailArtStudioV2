@@ -85,8 +85,12 @@ const grain = (x, y) => {
  * @param nails    fitted nails from hand.json
  * @param texture  ImageData of the design texture (free edge at the top)
  * @param finish   'gloss' | 'chrome' | 'satin'
+ * @param coverage how far the polish reaches, in units of the fitted outline: `side` for the sidewalls and
+ *                 free edge, `cuticle` at the base (from hand.json; tighter when the fit is tight)
  */
-export function paintNails(ctx, light, nails, texture, finish = 'gloss') {
+export function paintNails(ctx, light, nails, texture, finish = 'gloss', coverage = {}) {
+  const sideReach = coverage.side ?? 1.045;
+  const cuticleReach = coverage.cuticle ?? 1;
   const W = ctx.canvas.width;
   const H = ctx.canvas.height;
   const { data: tex, width: tw, height: th } = texture;
@@ -156,7 +160,7 @@ export function paintNails(ctx, light, nails, texture, finish = 'gloss') {
 
         // How much of the nail plate this is: reaches into the sidewalls, a hairline short of the cuticle.
         const toCuticle = smooth((-0.3 - v) / 0.5);
-        const reach = 1.045 * (1 - toCuticle) + (1 - 1.2 * onePx) * toCuticle;
+        const reach = sideReach * (1 - toCuticle) + (cuticleReach - 1.2 * onePx) * toCuticle;
         const cover = clamp01((reach - r) / (1.4 * onePx));
         const i = (y * w + x) * 4;
 

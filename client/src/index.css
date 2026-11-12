@@ -190,9 +190,7 @@ html[data-theme='dark'] {
   animation-timing-function: linear;
   animation-fill-mode: both;
 }
-.hero-hand-fade {
-  mask-image: linear-gradient(to bottom, #000 58%, transparent 97%);
-}
+
 
 /* Press-on nail tip in the hero's design row: rounded free edge, gentler base, glossy clear coat. */
 .hero-tip {

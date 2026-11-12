@@ -30,6 +30,8 @@ import { useTheme } from '../lib/theme';
 const HAND_URL = '/hero/hand.webp';
 const LIGHT_URL = '/hero/hand-light.webp';
 const LANDMARKS_URL = '/hero/hand.json';
+// Middle of the four finger nails in the photo (from hand.json), where the hero camera zooms to.
+const HAND_FOCUS = { x: 0.712, y: 0.176 };
 const AUTOPLAY_MS = 3800;
 const MAX_DESIGNS = 6;
 
@@ -115,7 +117,7 @@ async function loadHand() {
   const photo = toCanvas(img);
   const lightCanvas = lightImg ? toCanvas(lightImg) : photo;
   const light = lightCanvas.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, photo.width, photo.height);
-  return { photo, light, nails: meta.nails };
+  return { photo, light, nails: meta.nails, coverage: meta.coverage };
 }
 
 function textureData(img) {
@@ -135,7 +137,7 @@ async function renderDesign(hand, design) {
   out.height = hand.photo.height;
   const ctx = out.getContext('2d', { willReadFrequently: true });
   ctx.drawImage(hand.photo, 0, 0);
-  paintNails(ctx, hand.light, hand.nails, textureData(swatch), design.finish);
+  paintNails(ctx, hand.light, hand.nails, textureData(swatch), design.finish, hand.coverage);
   // Keep the polish inside the finger outline
   ctx.globalCompositeOperation = 'destination-in';
   ctx.drawImage(hand.photo, 0, 0);
@@ -229,8 +231,10 @@ export default function NailArtHero({ designs: galleryDesigns = [] }) {
 
   // ----- scroll-driven sequence -----
   const pinned = !reduceMotion;
-  const isDesktop = useIsDesktop();
   const sectionRef = useRef(null);
+  const stageRef = useRef(null);
+  const handColRef = useRef(null);
+  const handElRef = useRef(null);
   const { scrollYProgress: p } = useScroll({ target: sectionRef, offset: ['start start', 'end end'] });
 
   // Scrolling takes over from autoplay, and the close-up steps through the designs.
@@ -250,9 +254,9 @@ export default function NailArtHero({ designs: galleryDesigns = [] }) {
   // The camera: zoom towards the nails (they sit in the top fifth of the photo), drift a little while held,
   // then the hand lifts away.
   const handScale = useTransform(p, [0, ZOOM_END, CYCLE_END, CYCLE_END + 0.14], [1, 1.75, 1.9, 1.5]);
-  const zoomY = isDesktop ? '34%' : '24%';
-  const handY = useTransform(p, [0, ZOOM_END, CYCLE_END, CYCLE_END + 0.14], ['0%', zoomY, zoomY, '-110%']);
-  const handX = useTransform(p, [0, ZOOM_END, CYCLE_END], ['0%', isDesktop ? '-20%' : '0%', isDesktop ? '-18%' : '0%']);
+  const cam = useNailCamera(stageRef, handColRef, handElRef);
+  const handY = useTransform(p, [0, ZOOM_END, CYCLE_END, CYCLE_END + 0.14], [0, cam.dy, cam.dy - 12, cam.dy - cam.stageH * 1.2]);
+  const handX = useTransform(p, [0, ZOOM_END, CYCLE_END], [0, cam.dx, cam.dx + 10]);
   const handRotate = useTransform(p, [0, ZOOM_END, CYCLE_END, EXIT_END], [0, -3, 2, 6]);
   const handOpacity = useTransform(p, [CYCLE_END + 0.04, CYCLE_END + 0.12], [1, 0]);
   // Motion blur that follows scroll speed, like a fast camera move.
@@ -319,7 +323,7 @@ export default function NailArtHero({ designs: galleryDesigns = [] }) {
   );
 
   const handStyle = pinned
-    ? { scale: handScale, x: handX, y: handY, rotate: handRotate, opacity: handOpacity, filter: handFilter, transformOrigin: '50% 18%' }
+    ? { scale: handScale, x: handX, y: handY, rotate: handRotate, opacity: handOpacity, filter: handFilter, transformOrigin: `${HAND_FOCUS.x * 100}% ${HAND_FOCUS.y * 100}%` }
     : undefined;
 
   return (
@@ -328,7 +332,7 @@ export default function NailArtHero({ designs: galleryDesigns = [] }) {
       className={`relative isolate transition-[background-color] duration-[900ms] ease-out ${pinned ? 'h-[360svh]' : ''}`}
       style={{ backgroundColor: backdrop.base }}
     >
-      <div className={pinned ? 'sticky top-16 h-[calc(100svh-4rem)] overflow-hidden' : 'relative overflow-hidden'}>
+      <div ref={stageRef} className={pinned ? 'sticky top-16 h-[calc(100svh-4rem)] overflow-hidden' : 'relative overflow-hidden'}>
         {/* Soft light behind the hand, tinted by the design */}
         <div
           aria-hidden="true"
@@ -340,9 +344,9 @@ export default function NailArtHero({ designs: galleryDesigns = [] }) {
           {/* Copy */}
           <motion.div
             style={pinned ? { opacity: copyOpacity, x: copyX } : undefined}
-            className="relative z-20 flex flex-col justify-center md:col-span-5 md:py-16"
+            className="relative z-20 flex flex-col justify-center md:col-span-4 md:py-16"
           >
-            <h1 className="text-4xl leading-[1.05] font-semibold sm:text-6xl lg:text-7xl">
+            <h1 className="text-4xl leading-[1.05] font-semibold sm:text-5xl lg:text-6xl">
               {t('home.titleBefore')} <em className="text-rose-500">{t('home.titleEm')}</em> {t('home.titleAfter')}
             </h1>
             <p className="mt-5 hidden max-w-md text-base text-ink-soft sm:block md:text-lg">{t('home.subtitle')}</p>
@@ -357,13 +361,13 @@ export default function NailArtHero({ designs: galleryDesigns = [] }) {
           </motion.div>
 
           {/* Hand (on phones the picker floats over the faded palm) */}
-          <div className="relative flex items-end justify-center md:col-span-4">
+          <div ref={handColRef} className="relative flex items-end justify-center md:col-span-5">
             <motion.div
+              ref={handElRef}
               style={handStyle}
-              className="relative aspect-[1200/1822] w-full max-w-[300px] will-change-transform md:h-[min(80svh,700px)] md:w-auto md:max-w-none"
+              className="relative aspect-square w-full max-w-[340px] will-change-transform md:h-[min(70svh,600px)] md:w-auto md:max-w-none"
             >
-              {/* The photo was framed tight on the wrist side, so that edge fades into the backdrop */}
-              <div className={`hero-hand-fade absolute inset-0 ${reduceMotion ? '' : 'hero-hand-float'}`}>
+              <div className={`absolute inset-0 ${reduceMotion ? '' : 'hero-hand-float'}`}>
                 {/* Bare hand underneath, so there's something on screen while the first design renders */}
                 <img src={HAND_URL} alt="" className="absolute inset-0 size-full object-contain object-bottom drop-shadow-2xl" />
                 {designs.map((d, i) =>
@@ -475,15 +479,28 @@ function NailTip({ design, index, count, progress, active, onSelect }) {
   );
 }
 
-/** Tracks the md breakpoint, so the camera can centre the hand on wide screens. */
-function useIsDesktop() {
-  const query = '(min-width: 768px)';
-  const [match, setMatch] = useState(() => typeof window !== 'undefined' && window.matchMedia(query).matches);
+/**
+ * Where the camera has to move so the nails end up in the middle of the stage, measured from the layout
+ * (so it works at any screen size). Scaling happens around the nails (transform-origin), so only this
+ * offset is needed.
+ */
+function useNailCamera(stageRef, colRef, handRef) {
+  const [cam, setCam] = useState({ dx: 0, dy: 0, stageH: 800 });
   useEffect(() => {
-    const mq = window.matchMedia(query);
-    const on = () => setMatch(mq.matches);
-    mq.addEventListener('change', on);
-    return () => mq.removeEventListener('change', on);
-  }, []);
-  return match;
+    const measure = () => {
+      const stage = stageRef.current;
+      const col = colRef.current;
+      const hand = handRef.current;
+      if (!stage || !col || !hand) return;
+      const fx = col.offsetLeft + hand.offsetLeft + HAND_FOCUS.x * hand.offsetWidth;
+      const fy = col.offsetTop + hand.offsetTop + HAND_FOCUS.y * hand.offsetHeight;
+      setCam({ dx: stage.clientWidth / 2 - fx, dy: stage.clientHeight * 0.46 - fy, stageH: stage.clientHeight });
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    if (stageRef.current) ro.observe(stageRef.current);
+    if (handRef.current) ro.observe(handRef.current);
+    return () => ro.disconnect();
+  }, [stageRef, colRef, handRef]);
+  return cam;
 }
