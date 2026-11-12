@@ -45,7 +45,10 @@
       "tryYours": "Try it on your hand",
       "tryThis": "Try this design on your photo",
       "painting": "Painting nails…",
-      "handAlt": "A hand wearing the {{name}} nail design"
+      "handAlt": "A hand wearing the {{name}} nail design",
+      "scrollHint": "Scroll to try every design",
+      "stripTitle": "{{count}} designs. One is yours.",
+      "stripSubtitle": "Tap a design to see it up close, then try it on your own hand."
     }
   },
   "services": {
